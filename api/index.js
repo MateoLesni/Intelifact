@@ -117,11 +117,17 @@ app.get('/api/facturas', async (req, res) => {
       .select('local, categoria')
       .in('local', localesUnicos);
 
+    // Debug: ver qué datos estamos obteniendo
+    console.log('Locales únicos de facturas:', localesUnicos);
+    console.log('Datos de locales desde DB:', localesData);
+
     // Crear un mapa de local -> categoría
     const localCategoriaMap = {};
     localesData?.forEach(l => {
       localCategoriaMap[l.local] = l.categoria;
     });
+
+    console.log('Mapa local -> categoría:', localCategoriaMap);
 
     // Agregar la categoría a cada factura
     const facturasConCategoria = facturas.map(f => ({
@@ -130,6 +136,8 @@ app.get('/api/facturas', async (req, res) => {
         categoria: localCategoriaMap[f.local] || null
       }
     }));
+
+    console.log('Primera factura con categoría:', facturasConCategoria[0]);
 
     res.json(facturasConCategoria);
   } catch (error) {
