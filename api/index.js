@@ -93,8 +93,14 @@ app.get('/api/facturas', async (req, res) => {
 
     // Filtrar según rol
     if (rol === 'operacion') {
-      // Los usuarios de operación SOLO ven lo que ellos han cargado
-      query = query.eq('usuario_id', userId);
+      // Los usuarios de operación ven facturas de sus locales asignados
+      const { data: userLocales } = await supabase
+        .from('usuario_locales')
+        .select('local')
+        .eq('usuario_id', userId);
+
+      const locales = userLocales?.map(ul => ul.local) || [];
+      query = query.in('local', locales);
     } else if (rol === 'proveedores') {
       // Solo facturas con MR
       query = query.eq('mr_estado', true);
