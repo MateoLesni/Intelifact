@@ -86,8 +86,7 @@ app.get('/api/facturas', async (req, res) => {
       .select(`
         *,
         factura_imagenes(imagen_url),
-        usuarios(nombre),
-        locales!facturas_local_fkey(categoria)
+        usuarios(nombre)
       `)
       .order('created_at', { ascending: false });
 
@@ -107,10 +106,32 @@ app.get('/api/facturas', async (req, res) => {
     }
     // rol 'pedidos' y 'pedidos_admin' ven todas las facturas
 
-    const { data, error } = await query;
+    const { data: facturas, error } = await query;
 
     if (error) throw error;
-    res.json(data);
+
+    // Obtener categorías de los locales manualmente
+    const localesUnicos = [...new Set(facturas.map(f => f.local))];
+    const { data: localesData } = await supabase
+      .from('locales')
+      .select('local, categoria')
+      .in('local', localesUnicos);
+
+    // Crear un mapa de local -> categoría
+    const localCategoriaMap = {};
+    localesData?.forEach(l => {
+      localCategoriaMap[l.local] = l.categoria;
+    });
+
+    // Agregar la categoría a cada factura
+    const facturasConCategoria = facturas.map(f => ({
+      ...f,
+      locales: {
+        categoria: localCategoriaMap[f.local] || null
+      }
+    }));
+
+    res.json(facturasConCategoria);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
