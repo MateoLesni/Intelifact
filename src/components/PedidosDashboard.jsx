@@ -7,6 +7,7 @@ function PedidosDashboard({ user }) {
   const [facturas, setFacturas] = useState([]);
   const [facturasFiltradas, setFacturasFiltradas] = useState([]);
   const [locales, setLocales] = useState([]);
+  const [proveedores, setProveedores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
@@ -31,6 +32,7 @@ function PedidosDashboard({ user }) {
   useEffect(() => {
     loadFacturas();
     loadAllLocales();
+    loadProveedores();
   }, []);
 
   useEffect(() => {
@@ -81,6 +83,16 @@ function PedidosDashboard({ user }) {
       setLocales(data);
     } catch (error) {
       console.error('Error al cargar locales:', error);
+    }
+  };
+
+  const loadProveedores = async () => {
+    try {
+      const response = await fetch(`${API_URL}/proveedores`);
+      const data = await response.json();
+      setProveedores(data);
+    } catch (error) {
+      console.error('Error al cargar proveedores:', error);
     }
   };
 
@@ -425,12 +437,17 @@ function PedidosDashboard({ user }) {
                         />
                       </td>
                       <td style={{ padding: '0.5rem' }}>
-                        <input
-                          type="text"
+                        <select
                           value={editForm.proveedor}
                           onChange={(e) => setEditForm({ ...editForm, proveedor: e.target.value })}
                           style={{ width: '100%', padding: '0.5rem' }}
-                        />
+                        >
+                          {proveedores.map((prov) => (
+                            <option key={prov.id} value={prov.proveedor}>
+                              {prov.proveedor}
+                            </option>
+                          ))}
+                        </select>
                       </td>
                     </>
                   ) : (

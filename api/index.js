@@ -93,19 +93,13 @@ app.get('/api/facturas', async (req, res) => {
 
     // Filtrar según rol
     if (rol === 'operacion') {
-      // Obtener locales asignados al usuario
-      const { data: userLocales } = await supabase
-        .from('usuario_locales')
-        .select('local')
-        .eq('usuario_id', userId);
-
-      const locales = userLocales?.map(ul => ul.local) || [];
-      query = query.in('local', locales);
+      // Los usuarios de operación SOLO ven lo que ellos han cargado
+      query = query.eq('usuario_id', userId);
     } else if (rol === 'proveedores') {
       // Solo facturas con MR
       query = query.eq('mr_estado', true);
     }
-    // rol 'pedidos' ve todas las facturas
+    // rol 'pedidos' y 'pedidos_admin' ven todas las facturas
 
     const { data, error } = await query;
 
@@ -190,7 +184,7 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
 app.put('/api/facturas/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { fecha, local_id, nro_factura, nro_oc, proveedor, usuario_id } = req.body;
+    const { fecha, local, nro_factura, nro_oc, proveedor, usuario_id } = req.body;
 
     // Obtener datos anteriores para auditoría
     const { data: facturaAnterior } = await supabase
@@ -204,7 +198,7 @@ app.put('/api/facturas/:id', async (req, res) => {
       .from('facturas')
       .update({
         fecha,
-        local_id: parseInt(local_id),
+        local,
         nro_factura,
         nro_oc,
         proveedor,
