@@ -16,7 +16,7 @@ function PedidosDashboard({ user }) {
   const [expandedImage, setExpandedImage] = useState(null);
   const [showHistorial, setShowHistorial] = useState(null);
   const [showCreateUser, setShowCreateUser] = useState(false);
-  const [newUser, setNewUser] = useState({ nombre: '', password: '' });
+  const [newUser, setNewUser] = useState({ nombre: '', password: '', email: '' });
   const [filtros, setFiltros] = useState({
     id: '',
     fecha: '',
@@ -26,6 +26,7 @@ function PedidosDashboard({ user }) {
     proveedor: '',
     mr_numero: ''
   });
+  const [filtroMR, setFiltroMR] = useState('todos'); // 'todos', 'con_mr', 'sin_mr'
 
   useEffect(() => {
     loadFacturas();
@@ -36,6 +37,14 @@ function PedidosDashboard({ user }) {
     // Aplicar filtros
     let filtered = facturas;
 
+    // Filtro de MR
+    if (filtroMR === 'con_mr') {
+      filtered = filtered.filter(f => f.mr_estado === true);
+    } else if (filtroMR === 'sin_mr') {
+      filtered = filtered.filter(f => !f.mr_estado || f.mr_estado === false);
+    }
+
+    // Filtros de columnas
     Object.keys(filtros).forEach(key => {
       if (filtros[key].trim()) {
         filtered = filtered.filter(factura => {
@@ -50,7 +59,7 @@ function PedidosDashboard({ user }) {
     });
 
     setFacturasFiltradas(filtered);
-  }, [filtros, facturas]);
+  }, [filtros, filtroMR, facturas]);
 
   const loadFacturas = async () => {
     try {
@@ -174,8 +183,15 @@ function PedidosDashboard({ user }) {
   const handleCreateUser = async (e) => {
     e.preventDefault();
 
-    if (!newUser.nombre.trim() || !newUser.password.trim()) {
+    if (!newUser.nombre.trim() || !newUser.password.trim() || !newUser.email.trim()) {
       alert('Por favor complete todos los campos');
+      return;
+    }
+
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newUser.email)) {
+      alert('Por favor ingrese un email válido');
       return;
     }
 
@@ -185,6 +201,7 @@ function PedidosDashboard({ user }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nombre: newUser.nombre,
+          email: newUser.email,
           password: newUser.password,
           rol: 'pedidos'
         })
@@ -193,7 +210,7 @@ function PedidosDashboard({ user }) {
       if (response.ok) {
         alert('Usuario creado correctamente');
         setShowCreateUser(false);
-        setNewUser({ nombre: '', password: '' });
+        setNewUser({ nombre: '', password: '', email: '' });
       } else {
         const error = await response.json();
         alert('Error al crear usuario: ' + error.error);
@@ -209,17 +226,69 @@ function PedidosDashboard({ user }) {
 
   return (
     <div className="container">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <h2 style={{ margin: 0 }}>Gestión de Facturas</h2>
-        {user.rol === 'pedidos_admin' && (
-          <button
-            onClick={() => setShowCreateUser(true)}
-            className="btn btn-success"
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-          >
-            <span>+</span> Crear Usuario
-          </button>
-        )}
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', backgroundColor: '#ecf0f1', padding: '0.25rem', borderRadius: '6px' }}>
+            <button
+              onClick={() => setFiltroMR('todos')}
+              style={{
+                padding: '0.5rem 1rem',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: filtroMR === 'todos' ? '#2c3e50' : 'transparent',
+                color: filtroMR === 'todos' ? 'white' : '#2c3e50',
+                fontWeight: filtroMR === 'todos' ? '600' : '400',
+                fontSize: '0.875rem',
+                transition: 'all 0.2s'
+              }}
+            >
+              Todas ({facturas.length})
+            </button>
+            <button
+              onClick={() => setFiltroMR('con_mr')}
+              style={{
+                padding: '0.5rem 1rem',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: filtroMR === 'con_mr' ? '#27ae60' : 'transparent',
+                color: filtroMR === 'con_mr' ? 'white' : '#27ae60',
+                fontWeight: filtroMR === 'con_mr' ? '600' : '400',
+                fontSize: '0.875rem',
+                transition: 'all 0.2s'
+              }}
+            >
+              Con MR ({facturas.filter(f => f.mr_estado).length})
+            </button>
+            <button
+              onClick={() => setFiltroMR('sin_mr')}
+              style={{
+                padding: '0.5rem 1rem',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: filtroMR === 'sin_mr' ? '#e74c3c' : 'transparent',
+                color: filtroMR === 'sin_mr' ? 'white' : '#e74c3c',
+                fontWeight: filtroMR === 'sin_mr' ? '600' : '400',
+                fontSize: '0.875rem',
+                transition: 'all 0.2s'
+              }}
+            >
+              Sin MR ({facturas.filter(f => !f.mr_estado).length})
+            </button>
+          </div>
+          {user.rol === 'pedidos_admin' && (
+            <button
+              onClick={() => setShowCreateUser(true)}
+              className="btn btn-success"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.875rem' }}
+            >
+              <span>+</span> Crear Usuario
+            </button>
+          )}
+        </div>
       </div>
 
       {facturas.length === 0 ? (
@@ -231,16 +300,16 @@ function PedidosDashboard({ user }) {
           <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
             <thead>
               <tr style={{ backgroundColor: '#2c3e50', color: 'white' }}>
-                <th style={{ padding: '1rem', textAlign: 'left' }}>ID</th>
-                <th style={{ padding: '1rem', textAlign: 'left' }}>Fecha</th>
-                <th style={{ padding: '1rem', textAlign: 'left' }}>Local</th>
-                <th style={{ padding: '1rem', textAlign: 'left' }}>Nro. Factura</th>
-                <th style={{ padding: '1rem', textAlign: 'left' }}>Nro. OC</th>
-                <th style={{ padding: '1rem', textAlign: 'left' }}>Proveedor</th>
-                <th style={{ padding: '1rem', textAlign: 'left' }}>Cargado por</th>
-                <th style={{ padding: '1rem', textAlign: 'center' }}>Imágenes</th>
-                <th style={{ padding: '1rem', textAlign: 'center' }}>MR</th>
-                <th style={{ padding: '1rem', textAlign: 'center' }}>Acciones</th>
+                <th style={{ padding: '0.6rem 0.8rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600' }}>ID</th>
+                <th style={{ padding: '0.6rem 0.8rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600' }}>Fecha</th>
+                <th style={{ padding: '0.6rem 0.8rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600' }}>Local</th>
+                <th style={{ padding: '0.6rem 0.8rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600' }}>FC</th>
+                <th style={{ padding: '0.6rem 0.8rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600' }}>OC</th>
+                <th style={{ padding: '0.6rem 0.8rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600' }}>Proveedor</th>
+                <th style={{ padding: '0.6rem 0.8rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600' }}>Usuario</th>
+                <th style={{ padding: '0.6rem 0.8rem', textAlign: 'center', fontSize: '0.875rem', fontWeight: '600' }}>IMG</th>
+                <th style={{ padding: '0.6rem 0.8rem', textAlign: 'center', fontSize: '0.875rem', fontWeight: '600' }}>MR</th>
+                <th style={{ padding: '0.6rem 0.8rem', textAlign: 'center', fontSize: '0.875rem', fontWeight: '600' }}>Acciones</th>
               </tr>
               <tr style={{ backgroundColor: '#34495e' }}>
                 <th style={{ padding: '0.5rem' }}>
@@ -313,8 +382,8 @@ function PedidosDashboard({ user }) {
             </thead>
             <tbody>
               {facturasFiltradas.map((factura, index) => (
-                <tr key={factura.id} style={{ borderBottom: '1px solid #ecf0f1', backgroundColor: index % 2 === 0 ? 'white' : '#f8f9fa' }}>
-                  <td style={{ padding: '1rem' }}>{factura.id}</td>
+                <tr key={factura.id} style={{ borderBottom: '1px solid #e1e8ed', backgroundColor: index % 2 === 0 ? 'white' : '#fafbfc', fontSize: '0.875rem' }}>
+                  <td style={{ padding: '0.6rem 0.8rem', fontWeight: '500', color: '#666' }}>#{factura.id}</td>
 
                   {editingId === factura.id ? (
                     <>
@@ -366,53 +435,84 @@ function PedidosDashboard({ user }) {
                     </>
                   ) : (
                     <>
-                      <td style={{ padding: '1rem' }}>{new Date(factura.fecha).toLocaleDateString()}</td>
-                      <td style={{ padding: '1rem' }}>{factura.local}</td>
-                      <td style={{ padding: '1rem' }}>{factura.nro_factura}</td>
-                      <td style={{ padding: '1rem' }}>{factura.nro_oc}</td>
-                      <td style={{ padding: '1rem' }}>{factura.proveedor}</td>
+                      <td style={{ padding: '0.6rem 0.8rem', color: '#444' }}>{new Date(factura.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</td>
+                      <td style={{ padding: '0.6rem 0.8rem', color: '#444' }}>{factura.local}</td>
+                      <td style={{ padding: '0.6rem 0.8rem', fontWeight: '500', color: '#2c3e50' }}>{factura.nro_factura}</td>
+                      <td style={{ padding: '0.6rem 0.8rem', color: '#444' }}>{factura.nro_oc}</td>
+                      <td style={{ padding: '0.6rem 0.8rem', color: '#444', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{factura.proveedor}</td>
                     </>
                   )}
 
-                  <td style={{ padding: '1rem' }}>{factura.usuarios?.nombre || '-'}</td>
+                  <td style={{ padding: '0.6rem 0.8rem', color: '#666', fontSize: '0.8rem' }}>{factura.usuarios?.nombre || '-'}</td>
 
-                  <td style={{ padding: '1rem', textAlign: 'center' }}>
+                  <td style={{ padding: '0.6rem 0.8rem', textAlign: 'center' }}>
                     {factura.factura_imagenes && factura.factura_imagenes.length > 0 && (
                       <button
                         onClick={() => setSelectedImages(factura.factura_imagenes)}
-                        className="btn btn-primary"
-                        style={{ padding: '0.5rem', fontSize: '0.85rem' }}
+                        style={{
+                          padding: '0.35rem 0.6rem',
+                          fontSize: '0.75rem',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          backgroundColor: '#3498db',
+                          color: 'white',
+                          fontWeight: '500'
+                        }}
                       >
-                        🖼️ Ver ({factura.factura_imagenes.length})
+                        🖼️ {factura.factura_imagenes.length}
                       </button>
                     )}
                   </td>
 
-                  <td style={{ padding: '1rem', textAlign: 'center' }}>
+                  <td style={{ padding: '0.6rem 0.8rem', textAlign: 'center' }}>
                     {factura.mr_estado ? (
-                      <span className="badge badge-success">{factura.mr_numero}</span>
+                      <span style={{
+                        padding: '0.25rem 0.6rem',
+                        borderRadius: '12px',
+                        fontSize: '0.75rem',
+                        fontWeight: '600',
+                        backgroundColor: '#d4edda',
+                        color: '#155724'
+                      }}>{factura.mr_numero}</span>
                     ) : (
-                      <span style={{ color: '#95a5a6' }}>-</span>
+                      <span style={{ color: '#bdc3c7', fontSize: '0.875rem' }}>—</span>
                     )}
                   </td>
 
-                  <td style={{ padding: '1rem', textAlign: 'center' }}>
-                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <td style={{ padding: '0.6rem 0.8rem', textAlign: 'center' }}>
+                    <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'center', flexWrap: 'wrap' }}>
                       {editingId === factura.id ? (
                         <>
                           <button
                             onClick={() => handleUpdate(factura.id)}
-                            className="btn btn-success"
-                            style={{ padding: '0.5rem', fontSize: '0.85rem' }}
+                            style={{
+                              padding: '0.35rem 0.6rem',
+                              fontSize: '0.75rem',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              backgroundColor: '#27ae60',
+                              color: 'white',
+                              fontWeight: '500'
+                            }}
                           >
-                            💾 Guardar
+                            ✓
                           </button>
                           <button
                             onClick={() => setEditingId(null)}
-                            className="btn btn-secondary"
-                            style={{ padding: '0.5rem', fontSize: '0.85rem' }}
+                            style={{
+                              padding: '0.35rem 0.6rem',
+                              fontSize: '0.75rem',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              backgroundColor: '#95a5a6',
+                              color: 'white',
+                              fontWeight: '500'
+                            }}
                           >
-                            ✕ Cancelar
+                            ✕
                           </button>
                         </>
                       ) : (
@@ -420,36 +520,72 @@ function PedidosDashboard({ user }) {
                           {!factura.mr_estado && (
                             <button
                               onClick={() => setShowMRModal(factura.id)}
-                              className="btn btn-success"
-                              style={{ padding: '0.5rem', fontSize: '0.85rem' }}
+                              style={{
+                                padding: '0.35rem 0.7rem',
+                                fontSize: '0.75rem',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                backgroundColor: '#27ae60',
+                                color: 'white',
+                                fontWeight: '500'
+                              }}
+                              title="Generar MR"
                             >
-                              📝 Generar MR
+                              MR
                             </button>
                           )}
                           {user.rol === 'pedidos_admin' && (
                             <>
                               <button
                                 onClick={() => handleEdit(factura)}
-                                className="btn btn-primary"
-                                style={{ padding: '0.5rem', fontSize: '0.85rem' }}
+                                style={{
+                                  padding: '0.35rem 0.6rem',
+                                  fontSize: '0.75rem',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  backgroundColor: '#3498db',
+                                  color: 'white',
+                                  fontWeight: '500'
+                                }}
+                                title="Editar"
                               >
-                                ✏️ Editar
+                                ✏️
                               </button>
                               <button
                                 onClick={() => handleDelete(factura.id)}
-                                className="btn btn-danger"
-                                style={{ padding: '0.5rem', fontSize: '0.85rem' }}
+                                style={{
+                                  padding: '0.35rem 0.6rem',
+                                  fontSize: '0.75rem',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  backgroundColor: '#e74c3c',
+                                  color: 'white',
+                                  fontWeight: '500'
+                                }}
+                                title="Eliminar"
                               >
-                                🗑️ Eliminar
+                                🗑️
                               </button>
                             </>
                           )}
                           <button
                             onClick={() => setShowHistorial(factura.id)}
-                            className="btn btn-secondary"
-                            style={{ padding: '0.5rem', fontSize: '0.85rem' }}
+                            style={{
+                              padding: '0.35rem 0.6rem',
+                              fontSize: '0.75rem',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              backgroundColor: 'white',
+                              color: '#666',
+                              fontWeight: '500'
+                            }}
+                            title="Historial"
                           >
-                            📋 Historial
+                            📋
                           </button>
                         </>
                       )}
@@ -606,6 +742,21 @@ function PedidosDashboard({ user }) {
                 </small>
               </div>
               <div className="form-group">
+                <label style={{ color: '#2c3e50', fontWeight: '600' }}>Email</label>
+                <input
+                  type="email"
+                  value={newUser.email}
+                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                  placeholder="usuario@empresa.com"
+                  required
+                  style={{
+                    borderRadius: '8px',
+                    border: '2px solid #e1e8ed',
+                    padding: '0.875rem'
+                  }}
+                />
+              </div>
+              <div className="form-group">
                 <label style={{ color: '#2c3e50', fontWeight: '600' }}>Contraseña</label>
                 <input
                   type="password"
@@ -642,7 +793,7 @@ function PedidosDashboard({ user }) {
                   type="button"
                   onClick={() => {
                     setShowCreateUser(false);
-                    setNewUser({ nombre: '', password: '' });
+                    setNewUser({ nombre: '', password: '', email: '' });
                   }}
                   className="btn btn-secondary"
                   style={{ flex: 1, padding: '0.875rem', borderRadius: '8px' }}

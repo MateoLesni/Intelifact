@@ -415,19 +415,41 @@ app.get('/api/locales', async (req, res) => {
   }
 });
 
+// ============ PROVEEDORES ============
+
+app.get('/api/proveedores', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('proveedores')
+      .select('*')
+      .order('proveedor', { ascending: true });
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ============ USUARIOS ============
 
 app.post('/api/usuarios', async (req, res) => {
   try {
-    const { nombre, password, rol } = req.body;
+    const { nombre, email, password, rol } = req.body;
 
     // Validaciones
-    if (!nombre || !password || !rol) {
-      return res.status(400).json({ error: 'Nombre, contraseña y rol son requeridos' });
+    if (!nombre || !email || !password || !rol) {
+      return res.status(400).json({ error: 'Nombre, email, contraseña y rol son requeridos' });
     }
 
     if (password.length < 6) {
       return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+    }
+
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Email inválido' });
     }
 
     // Verificar que el rol sea válido
@@ -447,11 +469,23 @@ app.post('/api/usuarios', async (req, res) => {
       return res.status(400).json({ error: 'El nombre de usuario ya existe' });
     }
 
+    // Verificar que el email no exista
+    const { data: existingEmail } = await supabase
+      .from('usuarios')
+      .select('id')
+      .eq('email', email)
+      .single();
+
+    if (existingEmail) {
+      return res.status(400).json({ error: 'El email ya está registrado' });
+    }
+
     // Crear usuario (por ahora sin hash)
     const { data, error } = await supabase
       .from('usuarios')
       .insert({
         nombre,
+        email,
         password, // TODO: Agregar hash con bcrypt
         rol
       })
