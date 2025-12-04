@@ -15,6 +15,8 @@ function PedidosDashboard({ user }) {
   const [selectedImages, setSelectedImages] = useState(null);
   const [expandedImage, setExpandedImage] = useState(null);
   const [showHistorial, setShowHistorial] = useState(null);
+  const [showCreateUser, setShowCreateUser] = useState(false);
+  const [newUser, setNewUser] = useState({ nombre: '', password: '' });
   const [filtros, setFiltros] = useState({
     id: '',
     fecha: '',
@@ -169,13 +171,56 @@ function PedidosDashboard({ user }) {
     }
   };
 
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+
+    if (!newUser.nombre.trim() || !newUser.password.trim()) {
+      alert('Por favor complete todos los campos');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/usuarios`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: newUser.nombre,
+          password: newUser.password,
+          rol: 'pedidos'
+        })
+      });
+
+      if (response.ok) {
+        alert('Usuario creado correctamente');
+        setShowCreateUser(false);
+        setNewUser({ nombre: '', password: '' });
+      } else {
+        const error = await response.json();
+        alert('Error al crear usuario: ' + error.error);
+      }
+    } catch (error) {
+      alert('Error al crear usuario: ' + error.message);
+    }
+  };
+
   if (loading) {
     return <div className="container"><div className="loading">Cargando...</div></div>;
   }
 
   return (
     <div className="container">
-      <h2 style={{ marginBottom: '2rem' }}>Gestión de Facturas</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <h2 style={{ margin: 0 }}>Gestión de Facturas</h2>
+        {user.rol === 'pedidos_admin' && (
+          <button
+            onClick={() => setShowCreateUser(true)}
+            className="btn btn-success"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <span>+</span> Crear Usuario
+          </button>
+        )}
+      </div>
 
       {facturas.length === 0 ? (
         <div className="empty-state">
@@ -530,6 +575,91 @@ function PedidosDashboard({ user }) {
 
       {showHistorial && (
         <HistorialAuditoria facturaId={showHistorial} onClose={() => setShowHistorial(null)} />
+      )}
+
+      {/* Modal de crear usuario */}
+      {showCreateUser && (
+        <div className="modal" onClick={() => setShowCreateUser(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <button className="modal-close" onClick={() => setShowCreateUser(false)}>
+              ✕
+            </button>
+            <h3 style={{ marginBottom: '1.5rem', color: '#2c3e50' }}>Crear Usuario de Pedidos</h3>
+            <form onSubmit={handleCreateUser}>
+              <div className="form-group">
+                <label style={{ color: '#2c3e50', fontWeight: '600' }}>Nombre de Usuario</label>
+                <input
+                  type="text"
+                  value={newUser.nombre}
+                  onChange={(e) => setNewUser({ ...newUser, nombre: e.target.value })}
+                  placeholder="Ej: juan_perez"
+                  required
+                  autoFocus
+                  style={{
+                    borderRadius: '8px',
+                    border: '2px solid #e1e8ed',
+                    padding: '0.875rem'
+                  }}
+                />
+                <small style={{ display: 'block', marginTop: '0.5rem', color: '#6c757d', fontSize: '0.85rem' }}>
+                  El usuario podrá ver todas las facturas sin restricciones de local
+                </small>
+              </div>
+              <div className="form-group">
+                <label style={{ color: '#2c3e50', fontWeight: '600' }}>Contraseña</label>
+                <input
+                  type="password"
+                  value={newUser.password}
+                  onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                  placeholder="Ingrese contraseña segura"
+                  required
+                  style={{
+                    borderRadius: '8px',
+                    border: '2px solid #e1e8ed',
+                    padding: '0.875rem'
+                  }}
+                />
+                <small style={{ display: 'block', marginTop: '0.5rem', color: '#6c757d', fontSize: '0.85rem' }}>
+                  Mínimo 6 caracteres recomendado
+                </small>
+              </div>
+              <div style={{
+                backgroundColor: '#e8f4fd',
+                padding: '1rem',
+                borderRadius: '8px',
+                marginBottom: '1.5rem',
+                border: '1px solid #b8daf5'
+              }}>
+                <p style={{ margin: 0, fontSize: '0.9rem', color: '#2c3e50' }}>
+                  <strong>Rol:</strong> Pedidos (sin permisos de administrador)
+                </p>
+                <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem', color: '#6c757d' }}>
+                  El usuario podrá generar MR pero no editar ni eliminar facturas
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateUser(false);
+                    setNewUser({ nombre: '', password: '' });
+                  }}
+                  className="btn btn-secondary"
+                  style={{ flex: 1, padding: '0.875rem', borderRadius: '8px' }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-success"
+                  style={{ flex: 1, padding: '0.875rem', borderRadius: '8px' }}
+                >
+                  Crear Usuario
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

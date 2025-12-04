@@ -415,6 +415,59 @@ app.get('/api/locales', async (req, res) => {
   }
 });
 
+// ============ USUARIOS ============
+
+app.post('/api/usuarios', async (req, res) => {
+  try {
+    const { nombre, password, rol } = req.body;
+
+    // Validaciones
+    if (!nombre || !password || !rol) {
+      return res.status(400).json({ error: 'Nombre, contraseña y rol son requeridos' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+    }
+
+    // Verificar que el rol sea válido
+    const rolesPermitidos = ['operacion', 'pedidos', 'pedidos_admin', 'proveedores'];
+    if (!rolesPermitidos.includes(rol)) {
+      return res.status(400).json({ error: 'Rol no válido' });
+    }
+
+    // Verificar que el usuario no exista
+    const { data: existingUser } = await supabase
+      .from('usuarios')
+      .select('id')
+      .eq('nombre', nombre)
+      .single();
+
+    if (existingUser) {
+      return res.status(400).json({ error: 'El nombre de usuario ya existe' });
+    }
+
+    // Crear usuario (por ahora sin hash)
+    const { data, error } = await supabase
+      .from('usuarios')
+      .insert({
+        nombre,
+        password, // TODO: Agregar hash con bcrypt
+        rol
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // No devolver la contraseña
+    delete data.password;
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ============ AUDITORÍA ============
 
 app.get('/api/auditoria', async (req, res) => {

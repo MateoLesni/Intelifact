@@ -61,8 +61,15 @@ body {
 }
 
 .btn-primary {
-  background-color: #3498db;
+  background: linear-gradient(135deg, #2a5298 0%, #1e3c72 100%);
   color: white;
+  font-weight: 600;
+  box-shadow: 0 4px 15px rgba(30, 60, 114, 0.4);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  box-shadow: 0 6px 20px rgba(30, 60, 114, 0.6);
 }
 
 .btn-success {
@@ -85,22 +92,43 @@ body {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.login-container::before {
+  content: '';
+  position: absolute;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px);
+  background-size: 50px 50px;
+  animation: backgroundMove 20s linear infinite;
+}
+
+@keyframes backgroundMove {
+  0% { transform: translate(0, 0); }
+  100% { transform: translate(50px, 50px); }
 }
 
 .login-box {
   background: white;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+  padding: 3rem;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
   width: 100%;
-  max-width: 400px;
+  max-width: 440px;
+  position: relative;
+  z-index: 1;
 }
 
 .login-box h2 {
-  margin-bottom: 1.5rem;
-  color: #2c3e50;
+  margin-bottom: 0.5rem;
+  color: #1e3c72;
   text-align: center;
+  font-size: 2rem;
+  font-weight: 700;
 }
 
 .form-group {
