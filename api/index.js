@@ -111,15 +111,14 @@ app.get('/api/facturas', async (req, res) => {
     if (error) throw error;
 
     // Obtener categorías de los locales manualmente
-    const localesUnicos = [...new Set(facturas.map(f => f.local))];
+    // Filtrar facturas que tengan local (ignorar las que tienen local null de facturas antiguas)
+    const facturasConLocal = facturas.filter(f => f.local != null);
+    const localesUnicos = [...new Set(facturasConLocal.map(f => f.local))];
+
     const { data: localesData } = await supabase
       .from('locales')
       .select('local, categoria')
       .in('local', localesUnicos);
-
-    // Debug: ver qué datos estamos obteniendo
-    console.log('Locales únicos de facturas:', localesUnicos);
-    console.log('Datos de locales desde DB:', localesData);
 
     // Crear un mapa de local -> categoría
     const localCategoriaMap = {};
@@ -127,17 +126,13 @@ app.get('/api/facturas', async (req, res) => {
       localCategoriaMap[l.local] = l.categoria;
     });
 
-    console.log('Mapa local -> categoría:', localCategoriaMap);
-
     // Agregar la categoría a cada factura
     const facturasConCategoria = facturas.map(f => ({
       ...f,
       locales: {
-        categoria: localCategoriaMap[f.local] || null
+        categoria: f.local ? localCategoriaMap[f.local] || null : null
       }
     }));
-
-    console.log('Primera factura con categoría:', facturasConCategoria[0]);
 
     res.json(facturasConCategoria);
   } catch (error) {
@@ -150,6 +145,16 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
   try {
     const { fecha, local, nro_factura, nro_oc, proveedor, usuario_id } = req.body;
     const imagenes = req.files;
+
+    // Validar que haya al menos una imagen
+    if (!imagenes || imagenes.length === 0) {
+      return res.status(400).json({ error: 'Debe adjuntar al menos una imagen' });
+    }
+
+    // Validar campos requeridos
+    if (!fecha || !local || !nro_factura || !nro_oc || !proveedor) {
+      return res.status(400).json({ error: 'Todos los campos son requeridos' });
+    }
 
     // Obtener categoría del local
     const { data: localData, error: localError } = await supabase
@@ -177,9 +182,18 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
 
     if (facturaError) throw facturaError;
 
+    // Función para sanitizar nombres de archivo
+    const sanitizeFilename = (filename) => {
+      return filename
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // Eliminar tildes
+        .replace(/[^a-zA-Z0-9._-]/g, '_'); // Reemplazar caracteres especiales con _
+    };
+
     // Subir imágenes a Supabase Storage
     const imagenesPromises = imagenes.map(async (imagen) => {
-      const fileName = `${factura.id}-${Date.now()}-${imagen.originalname}`;
+      const sanitizedName = sanitizeFilename(imagen.originalname);
+      const fileName = `${factura.id}-${Date.now()}-${sanitizedName}`;
 
       const { data: uploadData, error: uploadError } = await supabase
         .storage
