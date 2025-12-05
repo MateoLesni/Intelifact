@@ -480,6 +480,43 @@ app.get('/api/proveedores', async (req, res) => {
   }
 });
 
+app.post('/api/proveedores', async (req, res) => {
+  try {
+    const { proveedor } = req.body;
+
+    // Validaciones
+    if (!proveedor || !proveedor.trim()) {
+      return res.status(400).json({ error: 'El nombre del proveedor es requerido' });
+    }
+
+    // Verificar que el proveedor no exista
+    const { data: existingProveedor } = await supabase
+      .from('proveedores')
+      .select('id')
+      .eq('proveedor', proveedor.trim())
+      .single();
+
+    if (existingProveedor) {
+      return res.status(400).json({ error: 'El proveedor ya existe' });
+    }
+
+    // Crear proveedor
+    const { data, error } = await supabase
+      .from('proveedores')
+      .insert({
+        proveedor: proveedor.trim()
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ============ USUARIOS ============
 
 app.post('/api/usuarios', async (req, res) => {

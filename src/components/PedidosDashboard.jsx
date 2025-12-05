@@ -1,9 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import HistorialAuditoria from './HistorialAuditoria';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
-function PedidosDashboard({ user }) {
+const PedidosDashboard = forwardRef(({ user }, ref) => {
+  useImperativeHandle(ref, () => ({
+    openCreateUser: () => setShowCreateUser(true),
+    openCreateProveedor: () => setShowCreateProveedor(true)
+  }));
   const [facturas, setFacturas] = useState([]);
   const [facturasFiltradas, setFacturasFiltradas] = useState([]);
   const [locales, setLocales] = useState([]);
@@ -17,7 +21,9 @@ function PedidosDashboard({ user }) {
   const [expandedImage, setExpandedImage] = useState(null);
   const [showHistorial, setShowHistorial] = useState(null);
   const [showCreateUser, setShowCreateUser] = useState(false);
+  const [showCreateProveedor, setShowCreateProveedor] = useState(false);
   const [newUser, setNewUser] = useState({ nombre: '', password: '', email: '' });
+  const [newProveedor, setNewProveedor] = useState({ proveedor: '' });
   const [filtros, setFiltros] = useState({
     id: '',
     fecha: '',
@@ -232,6 +238,37 @@ function PedidosDashboard({ user }) {
     }
   };
 
+  const handleCreateProveedor = async (e) => {
+    e.preventDefault();
+
+    if (!newProveedor.proveedor.trim()) {
+      alert('Por favor ingrese el nombre del proveedor');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/proveedores`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          proveedor: newProveedor.proveedor
+        })
+      });
+
+      if (response.ok) {
+        alert('Proveedor creado correctamente');
+        setShowCreateProveedor(false);
+        setNewProveedor({ proveedor: '' });
+        loadProveedores(); // Recargar lista de proveedores
+      } else {
+        const error = await response.json();
+        alert('Error al crear proveedor: ' + error.error);
+      }
+    } catch (error) {
+      alert('Error al crear proveedor: ' + error.message);
+    }
+  };
+
   if (loading) {
     return <div className="container"><div className="loading">Cargando...</div></div>;
   }
@@ -291,15 +328,6 @@ function PedidosDashboard({ user }) {
               Sin MR ({facturas.filter(f => !f.mr_estado).length})
             </button>
           </div>
-          {user.rol === 'pedidos_admin' && (
-            <button
-              onClick={() => setShowCreateUser(true)}
-              className="btn btn-success"
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.875rem' }}
-            >
-              <span>+</span> Crear Usuario
-            </button>
-          )}
         </div>
       </div>
 
@@ -829,8 +857,47 @@ function PedidosDashboard({ user }) {
           </div>
         </div>
       )}
+
+      {/* Modal Crear Proveedor */}
+      {showCreateProveedor && (
+        <div className="modal" onClick={() => setShowCreateProveedor(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <button className="modal-close" onClick={() => setShowCreateProveedor(false)}>✕</button>
+            <h3 style={{ marginBottom: '1.5rem', color: '#2c3e50' }}>Crear Proveedor</h3>
+            <form onSubmit={handleCreateProveedor}>
+              <div className="form-group">
+                <label style={{ color: '#2c3e50', fontWeight: '600' }}>Nombre del Proveedor</label>
+                <input
+                  type="text"
+                  value={newProveedor.proveedor}
+                  onChange={(e) => setNewProveedor({ ...newProveedor, proveedor: e.target.value })}
+                  placeholder="Ej: Proveedor SA"
+                  required
+                  style={{
+                    borderRadius: '8px',
+                    border: '2px solid #e1e8ed',
+                    padding: '0.875rem'
+                  }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateProveedor(false)}
+                  className="btn btn-secondary"
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="btn btn-success">
+                  Crear Proveedor
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
-}
+});
 
 export default PedidosDashboard;
