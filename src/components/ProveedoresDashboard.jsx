@@ -60,6 +60,11 @@ function ProveedoresDashboard({ user }) {
       const categoria = factura.locales?.categoria || 'Sin categoría';
       const fechaMR = factura.fecha_mr ? new Date(factura.fecha_mr).toLocaleDateString('es-AR') : 'Sin fecha';
 
+      // Debug temporal
+      if (factura.mr_numero) {
+        console.log(`Factura #${factura.id} - MR: ${factura.mr_numero} - fecha_mr: ${factura.fecha_mr} - fechaMR formateada: ${fechaMR}`);
+      }
+
       if (!carpetas[categoria]) {
         carpetas[categoria] = {};
       }
