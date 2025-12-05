@@ -58,7 +58,14 @@ function ProveedoresDashboard({ user }) {
     facturasFiltradas.forEach(factura => {
       // La categoría viene de la relación con locales
       const categoria = factura.locales?.categoria || 'Sin categoría';
-      const fechaMR = factura.fecha_mr ? new Date(factura.fecha_mr).toLocaleDateString('es-AR') : 'Sin fecha';
+
+      // Formatear fecha manualmente desde string YYYY-MM-DD a DD/MM/YYYY
+      // No usar new Date() porque interpreta como UTC y puede restar horas
+      let fechaMR = 'Sin fecha';
+      if (factura.fecha_mr) {
+        const [year, month, day] = factura.fecha_mr.split('-');
+        fechaMR = `${day}/${month}/${year}`;
+      }
 
       // Debug temporal
       if (factura.mr_numero) {
