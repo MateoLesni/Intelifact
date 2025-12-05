@@ -5,6 +5,7 @@ const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 function OperacionDashboard({ user }) {
   const [facturas, setFacturas] = useState([]);
+  const [facturasFiltradas, setFacturasFiltradas] = useState([]);
   const [locales, setLocales] = useState([]);
   const [proveedores, setProveedores] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,6 +21,14 @@ function OperacionDashboard({ user }) {
   const [selectedImages, setSelectedImages] = useState(null);
   const [expandedImage, setExpandedImage] = useState(null);
   const [showHistorial, setShowHistorial] = useState(null);
+  const [filtros, setFiltros] = useState({
+    id: '',
+    fecha: '',
+    local: '',
+    nro_factura: '',
+    nro_oc: '',
+    proveedor: ''
+  });
 
   useEffect(() => {
     loadFacturas();
@@ -27,11 +36,32 @@ function OperacionDashboard({ user }) {
     loadProveedores();
   }, []);
 
+  useEffect(() => {
+    // Aplicar filtros
+    let filtered = facturas;
+
+    Object.keys(filtros).forEach(key => {
+      if (filtros[key].trim()) {
+        filtered = filtered.filter(factura => {
+          const value = key === 'id'
+            ? factura[key]?.toString()
+            : key === 'fecha'
+            ? new Date(factura[key]).toLocaleDateString()
+            : factura[key];
+          return value?.toLowerCase().includes(filtros[key].toLowerCase());
+        });
+      }
+    });
+
+    setFacturasFiltradas(filtered);
+  }, [filtros, facturas]);
+
   const loadFacturas = async () => {
     try {
       const response = await fetch(`${API_URL}/facturas?rol=${user.rol}&userId=${user.id}`);
       const data = await response.json();
       setFacturas(data);
+      setFacturasFiltradas(data);
     } catch (error) {
       console.error('Error al cargar facturas:', error);
     } finally {
@@ -261,9 +291,68 @@ function OperacionDashboard({ user }) {
                 <th style={{ padding: '0.6rem 0.8rem', textAlign: 'center', fontSize: '0.875rem', fontWeight: '600' }}>MR</th>
                 <th style={{ padding: '0.6rem 0.8rem', textAlign: 'center', fontSize: '0.875rem', fontWeight: '600' }}>Acciones</th>
               </tr>
+              <tr style={{ backgroundColor: '#34495e' }}>
+                <th style={{ padding: '0.5rem' }}>
+                  <input
+                    type="text"
+                    value={filtros.id}
+                    onChange={(e) => setFiltros({ ...filtros, id: e.target.value })}
+                    placeholder="Filtrar..."
+                    style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem' }}
+                  />
+                </th>
+                <th style={{ padding: '0.5rem' }}>
+                  <input
+                    type="text"
+                    value={filtros.fecha}
+                    onChange={(e) => setFiltros({ ...filtros, fecha: e.target.value })}
+                    placeholder="Filtrar..."
+                    style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem' }}
+                  />
+                </th>
+                <th style={{ padding: '0.5rem' }}>
+                  <input
+                    type="text"
+                    value={filtros.local}
+                    onChange={(e) => setFiltros({ ...filtros, local: e.target.value })}
+                    placeholder="Filtrar..."
+                    style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem' }}
+                  />
+                </th>
+                <th style={{ padding: '0.5rem' }}>
+                  <input
+                    type="text"
+                    value={filtros.nro_factura}
+                    onChange={(e) => setFiltros({ ...filtros, nro_factura: e.target.value })}
+                    placeholder="Filtrar..."
+                    style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem' }}
+                  />
+                </th>
+                <th style={{ padding: '0.5rem' }}>
+                  <input
+                    type="text"
+                    value={filtros.nro_oc}
+                    onChange={(e) => setFiltros({ ...filtros, nro_oc: e.target.value })}
+                    placeholder="Filtrar..."
+                    style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem' }}
+                  />
+                </th>
+                <th style={{ padding: '0.5rem' }}>
+                  <input
+                    type="text"
+                    value={filtros.proveedor}
+                    onChange={(e) => setFiltros({ ...filtros, proveedor: e.target.value })}
+                    placeholder="Filtrar..."
+                    style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem' }}
+                  />
+                </th>
+                <th style={{ padding: '0.5rem' }}></th>
+                <th style={{ padding: '0.5rem' }}></th>
+                <th style={{ padding: '0.5rem' }}></th>
+              </tr>
             </thead>
             <tbody>
-              {facturas.map((factura, index) => (
+              {facturasFiltradas.map((factura, index) => (
                 <tr key={factura.id} style={{ borderBottom: '1px solid #e1e8ed', backgroundColor: index % 2 === 0 ? 'white' : '#fafbfc', fontSize: '0.875rem' }}>
                   <td style={{ padding: '0.6rem 0.8rem', fontWeight: '500', color: '#666' }}>#{factura.id}</td>
                   <td style={{ padding: '0.6rem 0.8rem', color: '#444' }}>{new Date(factura.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</td>
