@@ -340,6 +340,11 @@ app.post('/api/facturas/:id/mr', async (req, res) => {
       timeZone: 'America/Argentina/Buenos_Aires'
     });
 
+    console.log('=== DEBUG FECHA MR ===');
+    console.log('Fecha UTC:', new Date().toISOString());
+    console.log('Fecha Argentina calculada:', fechaMR);
+    console.log('=====================');
+
     // Actualizar factura con MR y fecha_mr
     const { data: factura, error } = await supabase
       .from('facturas')
