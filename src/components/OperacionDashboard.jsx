@@ -203,17 +203,17 @@ function OperacionDashboard({ user }) {
               </div>
             </div>
             <div className="form-group">
-              <label>Imágenes de la Factura (obligatorio)</label>
+              <label>Imágenes o PDFs de la Factura (obligatorio)</label>
               <div className="file-upload">
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/*,.pdf"
                   multiple
                   onChange={handleImageChange}
                   id="file-input"
                 />
                 <label htmlFor="file-input">
-                  Haga clic para seleccionar imágenes
+                  Haga clic para seleccionar imágenes o PDFs
                 </label>
               </div>
               {imagenes.length > 0 && (

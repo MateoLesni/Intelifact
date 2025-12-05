@@ -12,6 +12,8 @@ function ProveedoresDashboard({ user }) {
   const [categoriaAbierta, setCategoriaAbierta] = useState(null);
   const [fechaAbierta, setFechaAbierta] = useState(null);
   const [filtroGlobal, setFiltroGlobal] = useState('');
+  const [filtroNombreArchivo, setFiltroNombreArchivo] = useState('');
+  const [zoomLevel, setZoomLevel] = useState(1);
 
   useEffect(() => {
     loadFacturas();
@@ -65,11 +67,6 @@ function ProveedoresDashboard({ user }) {
       if (factura.fecha_mr) {
         const [year, month, day] = factura.fecha_mr.split('-');
         fechaMR = `${day}/${month}/${year}`;
-      }
-
-      // Debug temporal
-      if (factura.mr_numero) {
-        console.log(`Factura #${factura.id} - MR: ${factura.mr_numero} - fecha_mr: ${factura.fecha_mr} - fechaMR formateada: ${fechaMR}`);
       }
 
       if (!carpetas[categoria]) {
@@ -284,30 +281,61 @@ function ProveedoresDashboard({ user }) {
   }
 
   // Vista de imágenes
-  const imagenes = carpetas[categoriaAbierta][fechaAbierta];
+  const todasImagenes = carpetas[categoriaAbierta][fechaAbierta];
+
+  // Filtrar imágenes por nombre de archivo
+  const imagenes = filtroNombreArchivo.trim()
+    ? todasImagenes.filter(item =>
+        item.nombre.toLowerCase().includes(filtroNombreArchivo.toLowerCase())
+      )
+    : todasImagenes;
 
   return (
     <div className="container">
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
         <button onClick={() => setFechaAbierta(null)} className="btn btn-secondary">
           ← Volver a Fechas
         </button>
         <button
-          onClick={() => descargarTodasLasImagenes(imagenes, categoriaAbierta, fechaAbierta)}
+          onClick={() => descargarTodasLasImagenes(todasImagenes, categoriaAbierta, fechaAbierta)}
           className="btn btn-success"
         >
-          Descargar Todas las Imágenes ({imagenes.length})
+          Descargar Todas las Imágenes ({todasImagenes.length})
         </button>
+        <input
+          type="text"
+          value={filtroNombreArchivo}
+          onChange={(e) => setFiltroNombreArchivo(e.target.value)}
+          placeholder="Filtrar por nombre de archivo..."
+          style={{
+            flex: '1',
+            minWidth: '250px',
+            padding: '0.75rem',
+            fontSize: '0.95rem',
+            borderRadius: '4px',
+            border: '1px solid #ddd'
+          }}
+        />
+        {filtroNombreArchivo && (
+          <button
+            onClick={() => setFiltroNombreArchivo('')}
+            className="btn btn-secondary"
+            style={{ padding: '0.75rem' }}
+          >
+            ✕
+          </button>
+        )}
       </div>
 
       <h2 style={{ marginBottom: '1.5rem' }}>
         {categoriaAbierta} - {fechaAbierta}
+        {filtroNombreArchivo && ` (${imagenes.length} de ${todasImagenes.length})`}
       </h2>
 
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))',
-        gap: '2rem'
+        gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+        gap: '1.5rem'
       }}>
         {imagenes.map((item, index) => (
           <div
@@ -319,13 +347,13 @@ function ProveedoresDashboard({ user }) {
               backgroundColor: '#f9f9f9'
             }}
           >
-            <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => setSelectedImage(item.url)}>
+            <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => { setSelectedImage(item.url); setZoomLevel(1); }}>
               <img
                 src={item.url}
                 alt={item.nombre}
                 style={{
                   width: '100%',
-                  height: '400px',
+                  height: '250px',
                   objectFit: 'contain',
                   backgroundColor: '#fff',
                   transition: 'transform 0.2s'
@@ -346,11 +374,27 @@ function ProveedoresDashboard({ user }) {
                 🔍 Click para ampliar
               </div>
             </div>
-            <div style={{ padding: '1rem' }}>
+            <div style={{ padding: '0.75rem' }}>
               <p style={{
-                fontSize: '0.85rem',
-                color: '#666',
+                fontSize: '0.8rem',
+                color: '#2c3e50',
+                fontWeight: '600',
                 wordBreak: 'break-word',
+                marginBottom: '0.5rem',
+                maxHeight: '3em',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical'
+              }}
+              title={item.nombre}
+              >
+                {item.nombre}
+              </p>
+              <p style={{
+                fontSize: '0.75rem',
+                color: '#999',
                 marginBottom: '0.5rem'
               }}>
                 Imagen {index + 1} de {imagenes.length}
@@ -358,31 +402,105 @@ function ProveedoresDashboard({ user }) {
               <button
                 onClick={() => descargarImagen(item.url, item.nombre)}
                 className="btn btn-primary"
-                style={{ width: '100%' }}
+                style={{ width: '100%', fontSize: '0.85rem', padding: '0.5rem' }}
               >
-                ⬇️ Descargar Imagen
+                ⬇️ Descargar
               </button>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Modal de imagen expandida */}
+      {/* Modal de imagen expandida con zoom */}
       {selectedImage && (
-        <div className="modal" onClick={() => setSelectedImage(null)} style={{ backgroundColor: 'rgba(0,0,0,0.9)' }}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '98%', maxHeight: '98vh', padding: '1rem', backgroundColor: 'transparent' }}>
-            <button className="modal-close" onClick={() => setSelectedImage(null)} style={{ backgroundColor: 'white', color: 'black' }}>
+        <div className="modal" onClick={() => setSelectedImage(null)} style={{ backgroundColor: 'rgba(0,0,0,0.95)' }}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '98%', maxHeight: '98vh', padding: '1rem', backgroundColor: 'transparent', position: 'relative' }}>
+            <button className="modal-close" onClick={() => setSelectedImage(null)} style={{ backgroundColor: 'white', color: 'black', position: 'absolute', top: '10px', right: '10px', zIndex: 1001 }}>
               ✕
             </button>
-            <img
-              src={selectedImage}
-              alt="Imagen expandida"
-              style={{
-                width: '100%',
-                height: '90vh',
-                objectFit: 'contain'
-              }}
-            />
+
+            {/* Controles de Zoom */}
+            <div style={{
+              position: 'absolute',
+              top: '10px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              backgroundColor: 'white',
+              borderRadius: '8px',
+              padding: '0.5rem',
+              display: 'flex',
+              gap: '0.5rem',
+              alignItems: 'center',
+              zIndex: 1001,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+            }}>
+              <button
+                onClick={() => setZoomLevel(Math.max(0.5, zoomLevel - 0.25))}
+                style={{
+                  padding: '0.5rem 1rem',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  backgroundColor: '#3498db',
+                  color: 'white',
+                  fontWeight: '600'
+                }}
+              >
+                🔍−
+              </button>
+              <span style={{ fontWeight: '600', minWidth: '60px', textAlign: 'center' }}>
+                {Math.round(zoomLevel * 100)}%
+              </span>
+              <button
+                onClick={() => setZoomLevel(Math.min(5, zoomLevel + 0.25))}
+                style={{
+                  padding: '0.5rem 1rem',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  backgroundColor: '#3498db',
+                  color: 'white',
+                  fontWeight: '600'
+                }}
+              >
+                🔍+
+              </button>
+              <button
+                onClick={() => setZoomLevel(1)}
+                style={{
+                  padding: '0.5rem 1rem',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  backgroundColor: '#95a5a6',
+                  color: 'white',
+                  fontSize: '0.85rem'
+                }}
+              >
+                Reset
+              </button>
+            </div>
+
+            <div style={{
+              width: '100%',
+              height: '90vh',
+              overflow: 'auto',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center'
+            }}>
+              <img
+                src={selectedImage}
+                alt="Imagen expandida"
+                style={{
+                  transform: `scale(${zoomLevel})`,
+                  transformOrigin: 'center center',
+                  transition: 'transform 0.2s ease',
+                  maxWidth: 'none',
+                  cursor: zoomLevel > 1 ? 'move' : 'default'
+                }}
+              />
+            </div>
           </div>
         </div>
       )}
