@@ -335,10 +335,10 @@ app.post('/api/facturas/:id/mr', async (req, res) => {
       .single();
 
     // Obtener fecha actual en zona horaria de Argentina (Buenos Aires, UTC-3)
-    const fechaArgentina = new Date().toLocaleString('en-US', {
+    // Usar formato sueco 'sv-SE' que retorna YYYY-MM-DD directamente
+    const fechaMR = new Date().toLocaleDateString('sv-SE', {
       timeZone: 'America/Argentina/Buenos_Aires'
     });
-    const fechaMR = new Date(fechaArgentina).toISOString().split('T')[0];
 
     // Actualizar factura con MR y fecha_mr
     const { data: factura, error } = await supabase
