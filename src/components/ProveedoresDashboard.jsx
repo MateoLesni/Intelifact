@@ -487,18 +487,24 @@ function ProveedoresDashboard({ user }) {
               overflow: 'auto',
               display: 'flex',
               justifyContent: 'center',
-              alignItems: 'center'
+              alignItems: 'center',
+              padding: '2rem'
             }}>
               <img
                 src={selectedImage}
                 alt="Imagen expandida"
                 style={{
                   transform: `scale(${zoomLevel})`,
-                  transformOrigin: 'center center',
+                  transformOrigin: 'top left',
                   transition: 'transform 0.2s ease',
-                  maxWidth: 'none',
-                  cursor: zoomLevel > 1 ? 'move' : 'default'
+                  maxWidth: zoomLevel === 1 ? '100%' : 'none',
+                  maxHeight: zoomLevel === 1 ? '100%' : 'none',
+                  width: 'auto',
+                  height: 'auto',
+                  objectFit: 'contain',
+                  cursor: zoomLevel > 1 ? 'grab' : 'default'
                 }}
+                draggable={false}
               />
             </div>
           </div>
