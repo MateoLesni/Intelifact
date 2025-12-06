@@ -43,11 +43,16 @@ function OperacionDashboard({ user }) {
     Object.keys(filtros).forEach(key => {
       if (filtros[key].trim()) {
         filtered = filtered.filter(factura => {
-          const value = key === 'id'
-            ? factura[key]?.toString()
-            : key === 'fecha'
-            ? new Date(factura[key]).toLocaleDateString()
-            : factura[key];
+          let value;
+          if (key === 'id') {
+            value = factura[key]?.toString();
+          } else if (key === 'fecha') {
+            // Formatear fecha manualmente sin usar new Date() para evitar problemas de timezone
+            const [year, month, day] = factura[key].split('-');
+            value = `${day}/${month}/${year}`;
+          } else {
+            value = factura[key];
+          }
           return value?.toLowerCase().includes(filtros[key].toLowerCase());
         });
       }
@@ -355,7 +360,12 @@ function OperacionDashboard({ user }) {
               {facturasFiltradas.map((factura, index) => (
                 <tr key={factura.id} style={{ borderBottom: '1px solid #e1e8ed', backgroundColor: index % 2 === 0 ? 'white' : '#fafbfc', fontSize: '0.875rem' }}>
                   <td style={{ padding: '0.6rem 0.8rem', fontWeight: '500', color: '#666' }}>#{factura.id}</td>
-                  <td style={{ padding: '0.6rem 0.8rem', color: '#444' }}>{new Date(factura.fecha).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' })}</td>
+                  <td style={{ padding: '0.6rem 0.8rem', color: '#444' }}>
+                    {(() => {
+                      const [year, month, day] = factura.fecha.split('-');
+                      return `${day}/${month}/${year.slice(2)}`;
+                    })()}
+                  </td>
                   <td style={{ padding: '0.6rem 0.8rem', color: '#444' }}>{factura.local}</td>
                   <td style={{ padding: '0.6rem 0.8rem', fontWeight: '500', color: '#2c3e50' }}>{factura.nro_factura}</td>
                   <td style={{ padding: '0.6rem 0.8rem', color: '#444' }}>{factura.nro_oc}</td>
