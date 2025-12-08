@@ -65,8 +65,10 @@ function OperacionDashboard({ user }) {
     try {
       const response = await fetch(`${API_URL}/facturas?rol=${user.rol}&userId=${user.id}`);
       const data = await response.json();
-      setFacturas(data);
-      setFacturasFiltradas(data);
+      // Ordenar por ID descendente (más recientes primero)
+      const sortedData = data.sort((a, b) => b.id - a.id);
+      setFacturas(sortedData);
+      setFacturasFiltradas(sortedData);
     } catch (error) {
       console.error('Error al cargar facturas:', error);
     } finally {
