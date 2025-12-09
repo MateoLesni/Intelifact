@@ -313,11 +313,28 @@ const PedidosDashboard = forwardRef(({ user }, ref) => {
   const formatearFechaHoraArgentina = (fechaISO) => {
     if (!fechaISO) return '-';
 
-    // Crear fecha desde ISO string
-    const fecha = new Date(fechaISO);
+    // Asegurarnos de que el string tenga formato ISO válido
+    let fechaStr = fechaISO;
 
-    // Formatear usando Intl.DateTimeFormat para asegurar zona horaria correcta
-    const formatter = new Intl.DateTimeFormat('es-AR', {
+    // Si la fecha no tiene 'Z' al final ni offset de zona horaria, agregarla
+    if (!fechaStr.endsWith('Z') && !fechaStr.includes('+') && !fechaStr.includes('T')) {
+      // Es solo una fecha YYYY-MM-DD, agregarle tiempo
+      fechaStr = fechaStr + 'T00:00:00Z';
+    } else if (fechaStr.includes('T') && !fechaStr.endsWith('Z') && !fechaStr.includes('+')) {
+      // Tiene hora pero no zona horaria, asumir UTC
+      fechaStr = fechaStr + 'Z';
+    }
+
+    // Crear fecha desde ISO string (el navegador automáticamente lo interpreta como UTC)
+    const fecha = new Date(fechaStr);
+
+    // Verificar si la fecha es válida
+    if (isNaN(fecha.getTime())) {
+      return '-';
+    }
+
+    // Formatear usando Intl.DateTimeFormat para convertir a zona horaria Argentina
+    const partes = new Intl.DateTimeFormat('es-AR', {
       timeZone: 'America/Argentina/Buenos_Aires',
       day: '2-digit',
       month: '2-digit',
@@ -325,9 +342,14 @@ const PedidosDashboard = forwardRef(({ user }, ref) => {
       hour: '2-digit',
       minute: '2-digit',
       hour12: false
+    }).formatToParts(fecha);
+
+    const valores = {};
+    partes.forEach(({ type, value }) => {
+      valores[type] = value;
     });
 
-    return formatter.format(fecha);
+    return `${valores.day}/${valores.month}/${valores.year}, ${valores.hour}:${valores.minute}`;
   };
 
   if (loading) {
