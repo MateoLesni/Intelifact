@@ -312,8 +312,12 @@ const PedidosDashboard = forwardRef(({ user }, ref) => {
   // Función para formatear fecha y hora en zona horaria de Argentina
   const formatearFechaHoraArgentina = (fechaISO) => {
     if (!fechaISO) return '-';
+
+    // Crear fecha desde ISO string
     const fecha = new Date(fechaISO);
-    return fecha.toLocaleString('es-AR', {
+
+    // Formatear usando Intl.DateTimeFormat para asegurar zona horaria correcta
+    const formatter = new Intl.DateTimeFormat('es-AR', {
       timeZone: 'America/Argentina/Buenos_Aires',
       day: '2-digit',
       month: '2-digit',
@@ -322,6 +326,8 @@ const PedidosDashboard = forwardRef(({ user }, ref) => {
       minute: '2-digit',
       hour12: false
     });
+
+    return formatter.format(fecha);
   };
 
   if (loading) {
