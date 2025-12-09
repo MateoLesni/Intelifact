@@ -504,18 +504,18 @@ const PedidosDashboard = forwardRef(({ user }, ref) => {
           <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
             <thead>
               <tr style={{ backgroundColor: '#2c3e50', color: 'white' }}>
-                <th style={{ padding: '0.6rem 0.8rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600' }}>ID</th>
-                <th style={{ padding: '0.6rem 0.8rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600' }}>Fecha</th>
-                <th style={{ padding: '0.6rem 0.8rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600' }}>Local</th>
-                <th style={{ padding: '0.6rem 0.8rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600' }}>FC</th>
-                <th style={{ padding: '0.6rem 0.8rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600' }}>OC</th>
-                <th style={{ padding: '0.6rem 0.8rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600' }}>Proveedor</th>
-                <th style={{ padding: '0.6rem 0.8rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600' }}>Usuario</th>
-                <th style={{ padding: '0.6rem 0.8rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600' }}>Fecha Carga</th>
-                <th style={{ padding: '0.6rem 0.8rem', textAlign: 'center', fontSize: '0.875rem', fontWeight: '600' }}>IMG</th>
-                <th style={{ padding: '0.6rem 0.8rem', textAlign: 'center', fontSize: '0.875rem', fontWeight: '600' }}>MR</th>
-                <th style={{ padding: '0.6rem 0.8rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600' }}>Fecha MR</th>
-                <th style={{ padding: '0.6rem 0.8rem', textAlign: 'center', fontSize: '0.875rem', fontWeight: '600' }}>Acciones</th>
+                <th style={{ padding: '0.5rem 0.6rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: '600', width: '50px' }}>ID</th>
+                <th style={{ padding: '0.5rem 0.6rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: '600', width: '80px' }}>Fecha</th>
+                <th style={{ padding: '0.5rem 0.6rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: '600', width: '100px' }}>Local</th>
+                <th style={{ padding: '0.5rem 0.6rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: '600', width: '80px' }}>FC</th>
+                <th style={{ padding: '0.5rem 0.6rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: '600', width: '80px' }}>OC</th>
+                <th style={{ padding: '0.5rem 0.6rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: '600', width: '120px' }}>Proveedor</th>
+                <th style={{ padding: '0.5rem 0.6rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: '600', width: '70px' }}>Usuario</th>
+                <th style={{ padding: '0.5rem 0.6rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: '600', width: '110px' }}>Fecha Carga</th>
+                <th style={{ padding: '0.5rem 0.6rem', textAlign: 'center', fontSize: '0.8rem', fontWeight: '600', width: '50px' }}>IMG</th>
+                <th style={{ padding: '0.5rem 0.6rem', textAlign: 'center', fontSize: '0.8rem', fontWeight: '600', width: '70px' }}>MR</th>
+                <th style={{ padding: '0.5rem 0.6rem', textAlign: 'left', fontSize: '0.8rem', fontWeight: '600', width: '110px' }}>Fecha MR</th>
+                <th style={{ padding: '0.5rem 0.6rem', textAlign: 'center', fontSize: '0.8rem', fontWeight: '600', width: '140px' }}>Acciones</th>
               </tr>
               <tr style={{ backgroundColor: '#34495e' }}>
                 <th style={{ padding: '0.5rem' }}>
@@ -590,8 +590,8 @@ const PedidosDashboard = forwardRef(({ user }, ref) => {
             </thead>
             <tbody>
               {facturasFiltradas.map((factura, index) => (
-                <tr key={factura.id} style={{ borderBottom: '1px solid #e1e8ed', backgroundColor: index % 2 === 0 ? 'white' : '#fafbfc', fontSize: '0.875rem' }}>
-                  <td style={{ padding: '0.6rem 0.8rem', fontWeight: '500', color: '#666' }}>#{factura.id}</td>
+                <tr key={factura.id} style={{ borderBottom: '1px solid #e1e8ed', backgroundColor: index % 2 === 0 ? 'white' : '#fafbfc', fontSize: '0.8rem' }}>
+                  <td style={{ padding: '0.5rem 0.6rem', fontWeight: '500', color: '#666' }}>#{factura.id}</td>
 
                   {editingId === factura.id ? (
                     <>
@@ -648,26 +648,26 @@ const PedidosDashboard = forwardRef(({ user }, ref) => {
                     </>
                   ) : (
                     <>
-                      <td style={{ padding: '0.6rem 0.8rem', color: '#444' }}>
+                      <td style={{ padding: '0.5rem 0.6rem', color: '#444' }}>
                         {(() => {
                           const [year, month, day] = factura.fecha.split('-');
                           return `${day}/${month}/${year.slice(2)}`;
                         })()}
                       </td>
-                      <td style={{ padding: '0.6rem 0.8rem', color: '#444' }}>{factura.local}</td>
-                      <td style={{ padding: '0.6rem 0.8rem', fontWeight: '500', color: '#2c3e50' }}>{factura.nro_factura}</td>
-                      <td style={{ padding: '0.6rem 0.8rem', color: '#444' }}>{factura.nro_oc}</td>
-                      <td style={{ padding: '0.6rem 0.8rem', color: '#444', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{factura.proveedor}</td>
+                      <td style={{ padding: '0.5rem 0.6rem', color: '#444' }}>{factura.local}</td>
+                      <td style={{ padding: '0.5rem 0.6rem', fontWeight: '500', color: '#2c3e50' }}>{factura.nro_factura}</td>
+                      <td style={{ padding: '0.5rem 0.6rem', color: '#444' }}>{factura.nro_oc}</td>
+                      <td style={{ padding: '0.5rem 0.6rem', color: '#444', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{factura.proveedor}</td>
                     </>
                   )}
 
-                  <td style={{ padding: '0.6rem 0.8rem', color: '#666', fontSize: '0.8rem' }}>{factura.usuarios?.nombre || '-'}</td>
+                  <td style={{ padding: '0.5rem 0.6rem', color: '#666', fontSize: '0.75rem' }}>{factura.usuarios?.nombre || '-'}</td>
 
-                  <td style={{ padding: '0.6rem 0.8rem', color: '#666', fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+                  <td style={{ padding: '0.5rem 0.6rem', color: '#666', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
                     {formatearFechaHoraArgentina(factura.created_at)}
                   </td>
 
-                  <td style={{ padding: '0.6rem 0.8rem', textAlign: 'center' }}>
+                  <td style={{ padding: '0.5rem 0.6rem', textAlign: 'center' }}>
                     {factura.factura_imagenes && factura.factura_imagenes.length > 0 && (
                       <button
                         onClick={() => setSelectedImages(factura.factura_imagenes)}
@@ -687,26 +687,26 @@ const PedidosDashboard = forwardRef(({ user }, ref) => {
                     )}
                   </td>
 
-                  <td style={{ padding: '0.6rem 0.8rem', textAlign: 'center' }}>
+                  <td style={{ padding: '0.5rem 0.6rem', textAlign: 'center' }}>
                     {factura.mr_estado ? (
                       <span style={{
-                        padding: '0.25rem 0.6rem',
-                        borderRadius: '12px',
-                        fontSize: '0.75rem',
+                        padding: '0.2rem 0.5rem',
+                        borderRadius: '10px',
+                        fontSize: '0.7rem',
                         fontWeight: '600',
                         backgroundColor: '#d4edda',
                         color: '#155724'
                       }}>{factura.mr_numero}</span>
                     ) : (
-                      <span style={{ color: '#bdc3c7', fontSize: '0.875rem' }}>—</span>
+                      <span style={{ color: '#bdc3c7', fontSize: '0.8rem' }}>—</span>
                     )}
                   </td>
 
-                  <td style={{ padding: '0.6rem 0.8rem', color: '#666', fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+                  <td style={{ padding: '0.5rem 0.6rem', color: '#666', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
                     {factura.fecha_mr ? formatearFechaHoraArgentina(factura.fecha_mr) : '-'}
                   </td>
 
-                  <td style={{ padding: '0.6rem 0.8rem', textAlign: 'center' }}>
+                  <td style={{ padding: '0.5rem 0.6rem', textAlign: 'center' }}>
                     <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'center', flexWrap: 'wrap' }}>
                       {editingId === factura.id ? (
                         <>
