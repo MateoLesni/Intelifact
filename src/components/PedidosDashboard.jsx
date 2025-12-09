@@ -56,8 +56,8 @@ const PedidosDashboard = forwardRef(({ user }, ref) => {
     // Aplicar filtros
     let filtered = facturas;
 
-    // Filtro de locales seleccionados (solo para usuarios pedidos, no admin)
-    if (user.rol === 'pedidos' && localesSeleccionados.length > 0) {
+    // Filtro de locales seleccionados (para usuarios pedidos y pedidos_admin)
+    if ((user.rol === 'pedidos' || user.rol === 'pedidos_admin') && localesSeleccionados.length > 0) {
       filtered = filtered.filter(f => localesSeleccionados.includes(f.local));
     }
 
@@ -309,6 +309,21 @@ const PedidosDashboard = forwardRef(({ user }, ref) => {
   // Obtener lista única de locales de las facturas
   const localesUnicos = [...new Set(facturas.map(f => f.local).filter(l => l))].sort();
 
+  // Función para formatear fecha y hora en zona horaria de Argentina
+  const formatearFechaHoraArgentina = (fechaISO) => {
+    if (!fechaISO) return '-';
+    const fecha = new Date(fechaISO);
+    return fecha.toLocaleString('es-AR', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+  };
+
   if (loading) {
     return <div className="container"><div className="loading">Cargando...</div></div>;
   }
@@ -318,8 +333,8 @@ const PedidosDashboard = forwardRef(({ user }, ref) => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <h2 style={{ margin: 0 }}>Gestión de Facturas</h2>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Filtro de Locales - Solo para usuarios pedidos */}
-          {user.rol === 'pedidos' && (
+          {/* Filtro de Locales - Para usuarios pedidos y pedidos_admin */}
+          {(user.rol === 'pedidos' || user.rol === 'pedidos_admin') && (
             <div style={{ position: 'relative' }}>
               <button
                 onClick={() => setShowLocalesFilter(!showLocalesFilter)}
@@ -496,8 +511,10 @@ const PedidosDashboard = forwardRef(({ user }, ref) => {
                 <th style={{ padding: '0.6rem 0.8rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600' }}>OC</th>
                 <th style={{ padding: '0.6rem 0.8rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600' }}>Proveedor</th>
                 <th style={{ padding: '0.6rem 0.8rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600' }}>Usuario</th>
+                <th style={{ padding: '0.6rem 0.8rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600' }}>Fecha Carga</th>
                 <th style={{ padding: '0.6rem 0.8rem', textAlign: 'center', fontSize: '0.875rem', fontWeight: '600' }}>IMG</th>
                 <th style={{ padding: '0.6rem 0.8rem', textAlign: 'center', fontSize: '0.875rem', fontWeight: '600' }}>MR</th>
+                <th style={{ padding: '0.6rem 0.8rem', textAlign: 'left', fontSize: '0.875rem', fontWeight: '600' }}>Fecha MR</th>
                 <th style={{ padding: '0.6rem 0.8rem', textAlign: 'center', fontSize: '0.875rem', fontWeight: '600' }}>Acciones</th>
               </tr>
               <tr style={{ backgroundColor: '#34495e' }}>
@@ -557,6 +574,7 @@ const PedidosDashboard = forwardRef(({ user }, ref) => {
                 </th>
                 <th style={{ padding: '0.5rem' }}></th>
                 <th style={{ padding: '0.5rem' }}></th>
+                <th style={{ padding: '0.5rem' }}></th>
                 <th style={{ padding: '0.5rem' }}>
                   <input
                     type="text"
@@ -566,6 +584,7 @@ const PedidosDashboard = forwardRef(({ user }, ref) => {
                     style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem' }}
                   />
                 </th>
+                <th style={{ padding: '0.5rem' }}></th>
                 <th style={{ padding: '0.5rem' }}></th>
               </tr>
             </thead>
@@ -644,6 +663,10 @@ const PedidosDashboard = forwardRef(({ user }, ref) => {
 
                   <td style={{ padding: '0.6rem 0.8rem', color: '#666', fontSize: '0.8rem' }}>{factura.usuarios?.nombre || '-'}</td>
 
+                  <td style={{ padding: '0.6rem 0.8rem', color: '#666', fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+                    {formatearFechaHoraArgentina(factura.created_at)}
+                  </td>
+
                   <td style={{ padding: '0.6rem 0.8rem', textAlign: 'center' }}>
                     {factura.factura_imagenes && factura.factura_imagenes.length > 0 && (
                       <button
@@ -677,6 +700,10 @@ const PedidosDashboard = forwardRef(({ user }, ref) => {
                     ) : (
                       <span style={{ color: '#bdc3c7', fontSize: '0.875rem' }}>—</span>
                     )}
+                  </td>
+
+                  <td style={{ padding: '0.6rem 0.8rem', color: '#666', fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+                    {factura.fecha_mr ? formatearFechaHoraArgentina(factura.fecha_mr) : '-'}
                   </td>
 
                   <td style={{ padding: '0.6rem 0.8rem', textAlign: 'center' }}>

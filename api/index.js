@@ -86,7 +86,9 @@ app.get('/api/facturas', async (req, res) => {
       .select(`
         *,
         factura_imagenes(imagen_url),
-        usuarios(nombre)
+        usuarios(nombre),
+        created_at,
+        fecha_mr
       `)
       .order('created_at', { ascending: false });
 
@@ -381,11 +383,9 @@ app.post('/api/facturas/:id/mr', async (req, res) => {
       .eq('id', id)
       .single();
 
-    // Obtener fecha actual en zona horaria de Argentina (Buenos Aires, UTC-3)
-    // Usar formato sueco 'sv-SE' que retorna YYYY-MM-DD directamente
-    const fechaMR = new Date().toLocaleDateString('sv-SE', {
-      timeZone: 'America/Argentina/Buenos_Aires'
-    });
+    // Obtener fecha y hora actual en zona horaria de Argentina (Buenos Aires)
+    // Guardamos como timestamp ISO para mantener fecha y hora completa
+    const fechaMR = new Date().toISOString();
 
     // Actualizar factura con MR y fecha_mr
     const { data: factura, error } = await supabase
@@ -393,7 +393,7 @@ app.post('/api/facturas/:id/mr', async (req, res) => {
       .update({
         mr_numero,
         mr_estado: true,
-        fecha_mr: fechaMR, // Fecha en zona horaria Argentina
+        fecha_mr: fechaMR, // Timestamp completo con fecha y hora
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
