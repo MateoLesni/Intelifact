@@ -139,7 +139,27 @@ function OperacionDashboard({ user }) {
 
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
-    setImagenes([...imagenes, ...files]);
+    const MAX_SIZE = 4.5 * 1024 * 1024; // 4.5 MB en bytes
+
+    // Validar tamaño de archivos
+    const filesValidos = [];
+    const filesGrandes = [];
+
+    files.forEach(file => {
+      if (file.size > MAX_SIZE) {
+        filesGrandes.push(`${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+      } else {
+        filesValidos.push(file);
+      }
+    });
+
+    if (filesGrandes.length > 0) {
+      alert(`Los siguientes archivos exceden el límite de 4.5 MB y no fueron agregados:\n\n${filesGrandes.join('\n')}\n\nPor favor, comprime las imágenes antes de subirlas.`);
+    }
+
+    if (filesValidos.length > 0) {
+      setImagenes([...imagenes, ...filesValidos]);
+    }
   };
 
   const removeImage = (index) => {
