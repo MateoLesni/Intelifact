@@ -310,15 +310,17 @@ const PedidosDashboard = forwardRef(({ user }, ref) => {
   const localesUnicos = [...new Set(facturas.map(f => f.local).filter(l => l))].sort();
 
   // Función para formatear fecha y hora en zona horaria de Argentina
-  const formatearFechaHoraArgentina = (fechaISO) => {
+  const formatearFechaHoraArgentina = (fechaISO, soloFecha = false) => {
     if (!fechaISO) return '-';
 
     // Asegurarnos de que el string tenga formato ISO válido
     let fechaStr = fechaISO;
+    let esSoloFecha = false;
 
     // Si la fecha no tiene 'Z' al final ni offset de zona horaria, agregarla
     if (!fechaStr.endsWith('Z') && !fechaStr.includes('+') && !fechaStr.includes('T')) {
-      // Es solo una fecha YYYY-MM-DD, agregarle tiempo
+      // Es solo una fecha YYYY-MM-DD (formato antiguo), marcarla
+      esSoloFecha = true;
       fechaStr = fechaStr + 'T00:00:00Z';
     } else if (fechaStr.includes('T') && !fechaStr.endsWith('Z') && !fechaStr.includes('+')) {
       // Tiene hora pero no zona horaria, asumir UTC
@@ -331,6 +333,23 @@ const PedidosDashboard = forwardRef(({ user }, ref) => {
     // Verificar si la fecha es válida
     if (isNaN(fecha.getTime())) {
       return '-';
+    }
+
+    // Si es solo fecha O se solicita solo fecha, mostrar sin hora
+    if (esSoloFecha || soloFecha) {
+      const partes = new Intl.DateTimeFormat('es-AR', {
+        timeZone: 'America/Argentina/Buenos_Aires',
+        day: '2-digit',
+        month: '2-digit',
+        year: '2-digit'
+      }).formatToParts(fecha);
+
+      const valores = {};
+      partes.forEach(({ type, value }) => {
+        valores[type] = value;
+      });
+
+      return `${valores.day}/${valores.month}/${valores.year}`;
     }
 
     // Formatear usando Intl.DateTimeFormat para convertir a zona horaria Argentina
