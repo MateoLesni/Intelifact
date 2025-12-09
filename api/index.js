@@ -202,7 +202,10 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
           contentType: imagen.mimetype
         });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Error uploading to Supabase Storage:', uploadError);
+        throw new Error(`Error al subir imagen: ${uploadError.message || 'Sin permisos de escritura en Storage'}`);
+      }
 
       // Obtener URL pública
       const { data: urlData } = supabase
