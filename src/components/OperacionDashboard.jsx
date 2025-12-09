@@ -140,25 +140,49 @@ function OperacionDashboard({ user }) {
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
     const MAX_SIZE = 4.5 * 1024 * 1024; // 4.5 MB en bytes
+    const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
 
-    // Validar tamaño de archivos
+    // Validar archivos
     const filesValidos = [];
     const filesGrandes = [];
+    const filesTipoInvalido = [];
 
     files.forEach(file => {
+      // Validar que el archivo no esté corrupto
+      if (!file || file.size === 0) {
+        filesTipoInvalido.push(`${file.name} (archivo vacío o corrupto)`);
+        return;
+      }
+
+      // Validar tipo de archivo
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        filesTipoInvalido.push(`${file.name} (tipo no permitido: ${file.type || 'desconocido'})`);
+        return;
+      }
+
+      // Validar tamaño
       if (file.size > MAX_SIZE) {
         filesGrandes.push(`${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
-      } else {
-        filesValidos.push(file);
+        return;
       }
+
+      filesValidos.push(file);
     });
 
+    // Mostrar mensajes de error si hay archivos rechazados
+    if (filesTipoInvalido.length > 0) {
+      alert(`Los siguientes archivos tienen un formato no válido:\n\n${filesTipoInvalido.join('\n')}\n\nFormatos permitidos: JPG, PNG, GIF, WEBP, PDF`);
+    }
+
     if (filesGrandes.length > 0) {
-      alert(`Los siguientes archivos exceden el límite de 4.5 MB y no fueron agregados:\n\n${filesGrandes.join('\n')}\n\nPor favor, comprime las imágenes antes de subirlas.`);
+      alert(`Los siguientes archivos exceden el límite de 4.5 MB:\n\n${filesGrandes.join('\n')}\n\nPor favor, comprime las imágenes antes de subirlas.`);
     }
 
     if (filesValidos.length > 0) {
       setImagenes([...imagenes, ...filesValidos]);
+    } else if (files.length > 0) {
+      // Si había archivos pero todos fueron rechazados
+      alert('Ningún archivo fue agregado. Por favor revisa los requisitos.');
     }
   };
 

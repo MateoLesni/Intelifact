@@ -151,6 +151,24 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
       return res.status(400).json({ error: 'Debe adjuntar al menos una imagen' });
     }
 
+    // Validar tamaño de archivos (por si el frontend no lo hizo)
+    const MAX_SIZE = 4.5 * 1024 * 1024; // 4.5 MB
+    const archivosGrandes = imagenes.filter(img => img.size > MAX_SIZE);
+    if (archivosGrandes.length > 0) {
+      return res.status(400).json({
+        error: `Los siguientes archivos exceden el límite de 4.5 MB: ${archivosGrandes.map(f => f.originalname).join(', ')}`
+      });
+    }
+
+    // Validar tipos de archivo permitidos
+    const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
+    const archivosTipoInvalido = imagenes.filter(img => !ALLOWED_TYPES.includes(img.mimetype));
+    if (archivosTipoInvalido.length > 0) {
+      return res.status(400).json({
+        error: `Archivos con formato no permitido: ${archivosTipoInvalido.map(f => `${f.originalname} (${f.mimetype})`).join(', ')}`
+      });
+    }
+
     // Validar campos requeridos
     if (!fecha || !local || !nro_factura || !nro_oc || !proveedor) {
       return res.status(400).json({ error: 'Todos los campos son requeridos' });
@@ -204,7 +222,21 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
 
       if (uploadError) {
         console.error('Error uploading to Supabase Storage:', uploadError);
-        throw new Error(`Error al subir imagen: ${uploadError.message || 'Sin permisos de escritura en Storage'}`);
+        // Proporcionar mensaje específico según el tipo de error
+        let errorMsg = 'Error al subir imagen';
+        if (uploadError.message?.includes('Forbidden') || uploadError.statusCode === '403') {
+          errorMsg = 'Sin permisos para subir archivos. Contacte al administrador.';
+        } else if (uploadError.message?.includes('payload')) {
+          errorMsg = 'El archivo es demasiado grande para ser procesado.';
+        } else if (uploadError.message) {
+          errorMsg = `Error al subir ${imagen.originalname}: ${uploadError.message}`;
+        }
+        throw new Error(errorMsg);
+      }
+
+      // Verificar que el upload fue exitoso
+      if (!uploadData || !uploadData.path) {
+        throw new Error(`No se pudo confirmar la subida de ${imagen.originalname}`);
       }
 
       // Obtener URL pública
@@ -213,13 +245,22 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
         .from('facturas')
         .getPublicUrl(fileName);
 
+      if (!urlData || !urlData.publicUrl) {
+        throw new Error(`No se pudo obtener URL pública para ${imagen.originalname}`);
+      }
+
       // Insertar referencia en la tabla
-      await supabase
+      const { error: insertError } = await supabase
         .from('factura_imagenes')
         .insert({
           factura_id: factura.id,
           imagen_url: urlData.publicUrl
         });
+
+      if (insertError) {
+        console.error('Error inserting image reference:', insertError);
+        throw new Error(`Error al guardar referencia de ${imagen.originalname}`);
+      }
 
       return urlData.publicUrl;
     });
@@ -228,7 +269,10 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
 
     res.json(factura);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error creating factura:', error);
+    // Asegurar que siempre devolvemos un mensaje de error claro
+    const errorMessage = error.message || 'Error desconocido al crear la factura';
+    res.status(500).json({ error: errorMessage });
   }
 });
 
