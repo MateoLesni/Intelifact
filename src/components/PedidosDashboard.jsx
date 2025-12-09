@@ -34,6 +34,12 @@ const PedidosDashboard = forwardRef(({ user }, ref) => {
     mr_numero: ''
   });
   const [filtroMR, setFiltroMR] = useState('todos'); // 'todos', 'con_mr', 'sin_mr'
+  const [localesSeleccionados, setLocalesSeleccionados] = useState(() => {
+    // Cargar filtro de locales desde localStorage
+    const saved = localStorage.getItem(`filtroLocales_${user.id}`);
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [showLocalesFilter, setShowLocalesFilter] = useState(false);
 
   useEffect(() => {
     loadFacturas();
@@ -41,9 +47,19 @@ const PedidosDashboard = forwardRef(({ user }, ref) => {
     loadProveedores();
   }, []);
 
+  // Guardar filtro de locales en localStorage cuando cambie
+  useEffect(() => {
+    localStorage.setItem(`filtroLocales_${user.id}`, JSON.stringify(localesSeleccionados));
+  }, [localesSeleccionados, user.id]);
+
   useEffect(() => {
     // Aplicar filtros
     let filtered = facturas;
+
+    // Filtro de locales seleccionados (solo para usuarios pedidos, no admin)
+    if (user.rol === 'pedidos' && localesSeleccionados.length > 0) {
+      filtered = filtered.filter(f => localesSeleccionados.includes(f.local));
+    }
 
     // Filtro de MR
     if (filtroMR === 'con_mr') {
@@ -72,7 +88,7 @@ const PedidosDashboard = forwardRef(({ user }, ref) => {
     });
 
     setFacturasFiltradas(filtered);
-  }, [filtros, filtroMR, facturas]);
+  }, [filtros, filtroMR, facturas, localesSeleccionados, user.rol]);
 
   const loadFacturas = async () => {
     try {
@@ -276,6 +292,23 @@ const PedidosDashboard = forwardRef(({ user }, ref) => {
     }
   };
 
+  const toggleLocalSelection = (localNombre) => {
+    setLocalesSeleccionados(prev => {
+      if (prev.includes(localNombre)) {
+        return prev.filter(l => l !== localNombre);
+      } else {
+        return [...prev, localNombre];
+      }
+    });
+  };
+
+  const limpiarFiltroLocales = () => {
+    setLocalesSeleccionados([]);
+  };
+
+  // Obtener lista única de locales de las facturas
+  const localesUnicos = [...new Set(facturas.map(f => f.local).filter(l => l))].sort();
+
   if (loading) {
     return <div className="container"><div className="loading">Cargando...</div></div>;
   }
@@ -284,7 +317,116 @@ const PedidosDashboard = forwardRef(({ user }, ref) => {
     <div className="container">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <h2 style={{ margin: 0 }}>Gestión de Facturas</h2>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Filtro de Locales - Solo para usuarios pedidos */}
+          {user.rol === 'pedidos' && (
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setShowLocalesFilter(!showLocalesFilter)}
+                style={{
+                  padding: '0.5rem 1rem',
+                  border: '1px solid #3498db',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  backgroundColor: localesSeleccionados.length > 0 ? '#3498db' : 'white',
+                  color: localesSeleccionados.length > 0 ? 'white' : '#3498db',
+                  fontWeight: '600',
+                  fontSize: '0.875rem'
+                }}
+              >
+                🏪 Locales {localesSeleccionados.length > 0 && `(${localesSeleccionados.length})`}
+              </button>
+
+              {showLocalesFilter && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  marginTop: '0.5rem',
+                  backgroundColor: 'white',
+                  border: '1px solid #ddd',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  padding: '1rem',
+                  minWidth: '250px',
+                  maxHeight: '400px',
+                  overflowY: 'auto',
+                  zIndex: 1000
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', borderBottom: '1px solid #ecf0f1', paddingBottom: '0.5rem' }}>
+                    <strong style={{ fontSize: '0.9rem', color: '#2c3e50' }}>Filtrar por Locales</strong>
+                    <button
+                      onClick={() => setShowLocalesFilter(false)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        fontSize: '1.2rem',
+                        cursor: 'pointer',
+                        color: '#95a5a6'
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {localesSeleccionados.length > 0 && (
+                    <button
+                      onClick={limpiarFiltroLocales}
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem',
+                        marginBottom: '0.75rem',
+                        border: '1px solid #e74c3c',
+                        borderRadius: '4px',
+                        backgroundColor: '#fee',
+                        color: '#e74c3c',
+                        fontSize: '0.85rem',
+                        cursor: 'pointer',
+                        fontWeight: '500'
+                      }}
+                    >
+                      Limpiar Filtro
+                    </button>
+                  )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {localesUnicos.map(local => (
+                      <label
+                        key={local}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          padding: '0.5rem',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          backgroundColor: localesSeleccionados.includes(local) ? '#e3f2fd' : 'transparent',
+                          transition: 'background-color 0.2s'
+                        }}
+                        onMouseOver={(e) => {
+                          if (!localesSeleccionados.includes(local)) {
+                            e.currentTarget.style.backgroundColor = '#f5f5f5';
+                          }
+                        }}
+                        onMouseOut={(e) => {
+                          if (!localesSeleccionados.includes(local)) {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={localesSeleccionados.includes(local)}
+                          onChange={() => toggleLocalSelection(local)}
+                          style={{ cursor: 'pointer' }}
+                        />
+                        <span style={{ fontSize: '0.875rem', color: '#2c3e50' }}>{local}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: '0.5rem', backgroundColor: '#ecf0f1', padding: '0.25rem', borderRadius: '6px' }}>
             <button
               onClick={() => setFiltroMR('todos')}
