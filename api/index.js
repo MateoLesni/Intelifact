@@ -102,11 +102,11 @@ app.get('/api/facturas', async (req, res) => {
 
       const locales = userLocales?.map(ul => ul.local) || [];
       query = query.in('local', locales);
-    } else if (rol === 'proveedores') {
+    } else if (rol === 'proveedores' || rol === 'proveedores_viewer') {
       // Solo facturas con MR
       query = query.eq('mr_estado', true);
     }
-    // rol 'pedidos' y 'pedidos_admin' ven todas las facturas
+    // rol 'pedidos', 'pedidos_admin' y 'proveedores_viewer' ven todas las facturas
 
     const { data: facturas, error } = await query;
 

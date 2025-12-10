@@ -5,6 +5,7 @@ import Navbar from './components/Navbar';
 import OperacionDashboard from './components/OperacionDashboard';
 import PedidosDashboard from './components/PedidosDashboard';
 import ProveedoresDashboard from './components/ProveedoresDashboard';
+import ProveedoresViewerDashboard from './components/ProveedoresViewerDashboard';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -62,6 +63,8 @@ function App() {
               <PedidosDashboard user={user} ref={pedidosRef} />
             ) : user.rol === 'proveedores' ? (
               <ProveedoresDashboard user={user} />
+            ) : user.rol === 'proveedores_viewer' ? (
+              <ProveedoresViewerDashboard user={user} />
             ) : (
               <Navigate to="/" />
             )

@@ -3,10 +3,10 @@ import HistorialAuditoria from './HistorialAuditoria';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
-const PedidosDashboard = forwardRef(({ user }, ref) => {
+const PedidosDashboard = forwardRef(({ user, readOnly = false }, ref) => {
   useImperativeHandle(ref, () => ({
-    openCreateUser: () => setShowCreateUser(true),
-    openCreateProveedor: () => setShowCreateProveedor(true)
+    openCreateUser: () => !readOnly && setShowCreateUser(true),
+    openCreateProveedor: () => !readOnly && setShowCreateProveedor(true)
   }));
   const [facturas, setFacturas] = useState([]);
   const [facturasFiltradas, setFacturasFiltradas] = useState([]);
@@ -755,7 +755,7 @@ const PedidosDashboard = forwardRef(({ user }, ref) => {
 
                   <td style={{ padding: '0.5rem 0.6rem', textAlign: 'center' }}>
                     <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-                      {editingId === factura.id ? (
+                      {editingId === factura.id && !readOnly ? (
                         <>
                           <button
                             onClick={() => handleUpdate(factura.id)}
@@ -790,7 +790,7 @@ const PedidosDashboard = forwardRef(({ user }, ref) => {
                         </>
                       ) : (
                         <>
-                          {!factura.mr_estado && (
+                          {!readOnly && !factura.mr_estado && (
                             <button
                               onClick={() => setShowMRModal(factura.id)}
                               style={{
@@ -808,7 +808,7 @@ const PedidosDashboard = forwardRef(({ user }, ref) => {
                               MR
                             </button>
                           )}
-                          {user.rol === 'pedidos_admin' && (
+                          {!readOnly && user.rol === 'pedidos_admin' && (
                             <>
                               <button
                                 onClick={() => handleEdit(factura)}
