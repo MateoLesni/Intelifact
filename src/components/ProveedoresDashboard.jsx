@@ -14,6 +14,7 @@ function ProveedoresDashboard({ user }) {
   const [filtroGlobal, setFiltroGlobal] = useState('');
   const [filtroNombreArchivo, setFiltroNombreArchivo] = useState('');
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [imagenesEliminadas, setImagenesEliminadas] = useState(new Set());
 
   useEffect(() => {
     loadFacturas();
@@ -92,6 +93,11 @@ function ProveedoresDashboard({ user }) {
     return `${valores.day}/${valores.month}/${valores.year}`;
   };
 
+  // Manejar error de carga de imagen (marcarla como eliminada)
+  const handleImagenError = (url) => {
+    setImagenesEliminadas(prev => new Set([...prev, url]));
+  };
+
   // Organizar facturas por categoría y fecha
   const organizarPorCarpetas = () => {
     const carpetas = {};
@@ -111,14 +117,17 @@ function ProveedoresDashboard({ user }) {
         carpetas[categoria][fechaMR] = [];
       }
 
-      // Agregar todas las imágenes de la factura
+      // Agregar solo las imágenes que NO han sido eliminadas
       if (factura.factura_imagenes && factura.factura_imagenes.length > 0) {
         factura.factura_imagenes.forEach(img => {
-          carpetas[categoria][fechaMR].push({
-            url: img.imagen_url,
-            nombre: img.imagen_url.split('/').pop(),
-            factura: factura
-          });
+          // Excluir imágenes que fallaron al cargar (eliminadas)
+          if (!imagenesEliminadas.has(img.imagen_url)) {
+            carpetas[categoria][fechaMR].push({
+              url: img.imagen_url,
+              nombre: img.imagen_url.split('/').pop(),
+              factura: factura
+            });
+          }
         });
       }
     });
@@ -394,6 +403,7 @@ function ProveedoresDashboard({ user }) {
                 }}
                 onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
                 onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                onError={() => handleImagenError(item.url)}
               />
               <div style={{
                 position: 'absolute',
@@ -539,6 +549,10 @@ function ProveedoresDashboard({ user }) {
                   cursor: zoomLevel > 1 ? 'grab' : 'default'
                 }}
                 draggable={false}
+                onError={() => {
+                  handleImagenError(selectedImage);
+                  setSelectedImage(null);
+                }}
               />
             </div>
           </div>
