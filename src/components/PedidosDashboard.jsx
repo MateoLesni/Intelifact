@@ -41,6 +41,24 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
   });
   const [showLocalesFilter, setShowLocalesFilter] = useState(false);
 
+  // Filtro de rango de fechas (por defecto últimos 30 días)
+  const [rangoFechas, setRangoFechas] = useState(() => {
+    const saved = localStorage.getItem(`rangoFechas_${user.id}`);
+    if (saved) {
+      return JSON.parse(saved);
+    }
+    // Por defecto: últimos 30 días
+    const hoy = new Date();
+    const hace30Dias = new Date();
+    hace30Dias.setDate(hoy.getDate() - 30);
+    return {
+      desde: hace30Dias.toISOString().split('T')[0],
+      hasta: hoy.toISOString().split('T')[0],
+      preset: '30' // '30', '60', 'custom'
+    };
+  });
+  const [showRangoFechasModal, setShowRangoFechasModal] = useState(false);
+
   useEffect(() => {
     loadFacturas();
     loadAllLocales();
@@ -52,9 +70,28 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
     localStorage.setItem(`filtroLocales_${user.id}`, JSON.stringify(localesSeleccionados));
   }, [localesSeleccionados, user.id]);
 
+  // Guardar rango de fechas en localStorage cuando cambie
+  useEffect(() => {
+    localStorage.setItem(`rangoFechas_${user.id}`, JSON.stringify(rangoFechas));
+  }, [rangoFechas, user.id]);
+
   useEffect(() => {
     // Aplicar filtros
     let filtered = facturas;
+
+    // Filtro de rango de fechas
+    if (rangoFechas.desde && rangoFechas.hasta) {
+      filtered = filtered.filter(f => {
+        const fechaFactura = new Date(f.fecha);
+        const desde = new Date(rangoFechas.desde);
+        const hasta = new Date(rangoFechas.hasta);
+        // Ajustar horas para comparar solo fechas
+        fechaFactura.setHours(0, 0, 0, 0);
+        desde.setHours(0, 0, 0, 0);
+        hasta.setHours(23, 59, 59, 999);
+        return fechaFactura >= desde && fechaFactura <= hasta;
+      });
+    }
 
     // Filtro de locales seleccionados (para usuarios pedidos, pedidos_admin y proveedores_viewer)
     if ((user.rol === 'pedidos' || user.rol === 'pedidos_admin' || user.rol === 'proveedores_viewer') && localesSeleccionados.length > 0) {
@@ -88,7 +125,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
     });
 
     setFacturasFiltradas(filtered);
-  }, [filtros, filtroMR, facturas, localesSeleccionados, user.rol]);
+  }, [filtros, filtroMR, facturas, localesSeleccionados, rangoFechas, user.rol]);
 
   const loadFacturas = async () => {
     try {
@@ -310,6 +347,26 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
     setLocalesSeleccionados([]);
   };
 
+  // Funciones para manejar rango de fechas
+  const aplicarRangoPreset = (dias) => {
+    const hoy = new Date();
+    const desde = new Date();
+    desde.setDate(hoy.getDate() - dias);
+    setRangoFechas({
+      desde: desde.toISOString().split('T')[0],
+      hasta: hoy.toISOString().split('T')[0],
+      preset: dias.toString()
+    });
+  };
+
+  const aplicarRangoPersonalizado = (desde, hasta) => {
+    setRangoFechas({
+      desde,
+      hasta,
+      preset: 'custom'
+    });
+  };
+
   // Obtener lista única de locales de las facturas
   const localesUnicos = [...new Set(facturas.map(f => f.local).filter(l => l))].sort();
 
@@ -493,6 +550,153 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
             </div>
           )}
 
+          {/* Filtro de Rango de Fechas */}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setShowRangoFechasModal(!showRangoFechasModal)}
+              style={{
+                padding: '0.5rem 1rem',
+                border: '1px solid #9b59b6',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                backgroundColor: rangoFechas.preset !== '30' ? '#9b59b6' : 'white',
+                color: rangoFechas.preset !== '30' ? 'white' : '#9b59b6',
+                fontWeight: '600',
+                fontSize: '0.875rem'
+              }}
+            >
+              📅 {rangoFechas.preset === '30' ? 'Últimos 30 días' : rangoFechas.preset === '60' ? 'Últimos 60 días' : 'Rango personalizado'}
+            </button>
+
+            {showRangoFechasModal && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                marginTop: '0.5rem',
+                backgroundColor: 'white',
+                border: '1px solid #ddd',
+                borderRadius: '8px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                padding: '1rem',
+                minWidth: '320px',
+                zIndex: 1000
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #ecf0f1', paddingBottom: '0.5rem' }}>
+                  <strong style={{ fontSize: '0.9rem', color: '#2c3e50' }}>Rango de Fechas</strong>
+                  <button
+                    onClick={() => setShowRangoFechasModal(false)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      fontSize: '1.2rem',
+                      cursor: 'pointer',
+                      color: '#95a5a6'
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Opciones predefinidas */}
+                <div style={{ marginBottom: '1rem' }}>
+                  <p style={{ fontSize: '0.85rem', fontWeight: '600', color: '#7f8c8d', marginBottom: '0.5rem' }}>Rangos predefinidos:</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <button
+                      onClick={() => {
+                        aplicarRangoPreset(30);
+                        setShowRangoFechasModal(false);
+                      }}
+                      style={{
+                        padding: '0.6rem',
+                        border: rangoFechas.preset === '30' ? '2px solid #9b59b6' : '1px solid #ddd',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        backgroundColor: rangoFechas.preset === '30' ? '#f4ecf7' : 'white',
+                        textAlign: 'left',
+                        fontSize: '0.875rem',
+                        fontWeight: rangoFechas.preset === '30' ? '600' : '400'
+                      }}
+                    >
+                      Últimos 30 días
+                    </button>
+                    <button
+                      onClick={() => {
+                        aplicarRangoPreset(60);
+                        setShowRangoFechasModal(false);
+                      }}
+                      style={{
+                        padding: '0.6rem',
+                        border: rangoFechas.preset === '60' ? '2px solid #9b59b6' : '1px solid #ddd',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        backgroundColor: rangoFechas.preset === '60' ? '#f4ecf7' : 'white',
+                        textAlign: 'left',
+                        fontSize: '0.875rem',
+                        fontWeight: rangoFechas.preset === '60' ? '600' : '400'
+                      }}
+                    >
+                      Últimos 60 días
+                    </button>
+                  </div>
+                </div>
+
+                {/* Rango personalizado */}
+                <div>
+                  <p style={{ fontSize: '0.85rem', fontWeight: '600', color: '#7f8c8d', marginBottom: '0.5rem' }}>Rango personalizado:</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div>
+                      <label style={{ fontSize: '0.8rem', color: '#7f8c8d', display: 'block', marginBottom: '0.25rem' }}>Desde:</label>
+                      <input
+                        type="date"
+                        value={rangoFechas.desde}
+                        onChange={(e) => aplicarRangoPersonalizado(e.target.value, rangoFechas.hasta)}
+                        style={{
+                          width: '100%',
+                          padding: '0.5rem',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          fontSize: '0.875rem'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.8rem', color: '#7f8c8d', display: 'block', marginBottom: '0.25rem' }}>Hasta:</label>
+                      <input
+                        type="date"
+                        value={rangoFechas.hasta}
+                        onChange={(e) => aplicarRangoPersonalizado(rangoFechas.desde, e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '0.5rem',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          fontSize: '0.875rem'
+                        }}
+                      />
+                    </div>
+                    <button
+                      onClick={() => setShowRangoFechasModal(false)}
+                      style={{
+                        padding: '0.6rem',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        backgroundColor: '#9b59b6',
+                        color: 'white',
+                        fontSize: '0.875rem',
+                        fontWeight: '600',
+                        marginTop: '0.5rem'
+                      }}
+                    >
+                      Aplicar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div style={{ display: 'flex', gap: '0.5rem', backgroundColor: '#ecf0f1', padding: '0.25rem', borderRadius: '6px' }}>
             <button
               onClick={() => setFiltroMR('todos')}
@@ -508,7 +712,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                 transition: 'all 0.2s'
               }}
             >
-              Todas ({facturas.length})
+              Todas ({facturasFiltradas.length})
             </button>
             <button
               onClick={() => setFiltroMR('con_mr')}
@@ -524,7 +728,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                 transition: 'all 0.2s'
               }}
             >
-              Con MR ({facturas.filter(f => f.mr_estado).length})
+              Con MR ({facturasFiltradas.filter(f => f.mr_estado).length})
             </button>
             <button
               onClick={() => setFiltroMR('sin_mr')}
@@ -540,7 +744,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                 transition: 'all 0.2s'
               }}
             >
-              Sin MR ({facturas.filter(f => !f.mr_estado).length})
+              Sin MR ({facturasFiltradas.filter(f => !f.mr_estado).length})
             </button>
           </div>
         </div>
