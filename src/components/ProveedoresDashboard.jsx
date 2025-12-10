@@ -53,6 +53,39 @@ function ProveedoresDashboard({ user }) {
     }
   };
 
+  // Función para formatear solo la fecha en zona horaria de Argentina
+  const formatearSoloFecha = (fechaISO) => {
+    if (!fechaISO) return 'Sin fecha';
+
+    let fechaStr = fechaISO;
+
+    // Si la fecha no tiene 'Z' al final ni offset de zona horaria, agregarla
+    if (!fechaStr.endsWith('Z') && !fechaStr.includes('+') && !fechaStr.includes('T')) {
+      // Es solo una fecha YYYY-MM-DD
+      fechaStr = fechaStr + 'T00:00:00Z';
+    } else if (fechaStr.includes('T') && !fechaStr.endsWith('Z') && !fechaStr.includes('+')) {
+      // Tiene hora pero no zona horaria, asumir UTC
+      fechaStr = fechaStr + 'Z';
+    }
+
+    const fecha = new Date(fechaStr);
+    if (isNaN(fecha.getTime())) return 'Sin fecha';
+
+    const partes = new Intl.DateTimeFormat('es-AR', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    }).formatToParts(fecha);
+
+    const valores = {};
+    partes.forEach(({ type, value }) => {
+      valores[type] = value;
+    });
+
+    return `${valores.day}/${valores.month}/${valores.year}`;
+  };
+
   // Organizar facturas por categoría y fecha
   const organizarPorCarpetas = () => {
     const carpetas = {};
@@ -61,13 +94,8 @@ function ProveedoresDashboard({ user }) {
       // La categoría viene de la relación con locales
       const categoria = factura.locales?.categoria || 'Sin categoría';
 
-      // Formatear fecha manualmente desde string YYYY-MM-DD a DD/MM/YYYY
-      // No usar new Date() porque interpreta como UTC y puede restar horas
-      let fechaMR = 'Sin fecha';
-      if (factura.fecha_mr) {
-        const [year, month, day] = factura.fecha_mr.split('-');
-        fechaMR = `${day}/${month}/${year}`;
-      }
+      // Formatear fecha usando la función que maneja timestamps correctamente
+      const fechaMR = formatearSoloFecha(factura.fecha_mr);
 
       if (!carpetas[categoria]) {
         carpetas[categoria] = {};
