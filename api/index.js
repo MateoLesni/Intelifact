@@ -185,22 +185,48 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
 
     if (localError) throw new Error('Local no encontrado');
 
+    // Preparar datos para insertar
+    const facturaData = {
+      fecha,
+      local,
+      nro_factura,
+      nro_oc,
+      proveedor,
+      categoria: localData.categoria,
+      usuario_carga_id: parseInt(usuario_id)
+    };
+
+    console.log('Intentando insertar factura con datos:', facturaData);
+
     // Insertar factura
     const { data: factura, error: facturaError } = await supabase
       .from('facturas')
-      .insert({
-        fecha,
-        local,
-        nro_factura,
-        nro_oc,
-        proveedor,
-        categoria: localData.categoria,
-        usuario_carga_id: parseInt(usuario_id)
-      })
+      .insert(facturaData)
       .select()
       .single();
 
-    if (facturaError) throw facturaError;
+    if (facturaError) {
+      console.error('Error de Supabase al insertar factura:', facturaError);
+      console.error('Datos que causaron el error:', facturaData);
+
+      // Proporcionar mensajes más específicos según el tipo de error
+      let errorMsg = 'Error al crear la factura';
+
+      if (facturaError.message?.includes('pattern') || facturaError.message?.includes('formato')) {
+        errorMsg = 'Uno de los campos tiene un formato inválido. Verifique que:\n' +
+                   '- El número de factura solo contenga números\n' +
+                   '- El número de OC solo contenga números\n' +
+                   '- La fecha esté en formato correcto';
+      } else if (facturaError.code === '23505') {
+        errorMsg = 'Ya existe una factura con ese número. Verifique el número de factura.';
+      } else if (facturaError.code === '23503') {
+        errorMsg = 'El local seleccionado no existe. Contacte al administrador.';
+      } else if (facturaError.message) {
+        errorMsg = `Error: ${facturaError.message}`;
+      }
+
+      throw new Error(errorMsg);
+    }
 
     // Función para sanitizar nombres de archivo
     const sanitizeFilename = (filename) => {
@@ -252,16 +278,30 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
       }
 
       // Insertar referencia en la tabla
+      const imagenData = {
+        factura_id: factura.id,
+        imagen_url: urlData.publicUrl
+      };
+
+      console.log('Insertando referencia de imagen:', imagenData);
+
       const { error: insertError } = await supabase
         .from('factura_imagenes')
-        .insert({
-          factura_id: factura.id,
-          imagen_url: urlData.publicUrl
-        });
+        .insert(imagenData);
 
       if (insertError) {
-        console.error('Error inserting image reference:', insertError);
-        throw new Error(`Error al guardar referencia de ${imagen.originalname}`);
+        console.error('Error al insertar referencia de imagen:', insertError);
+        console.error('Datos de imagen:', imagenData);
+
+        let errorMsg = `Error al guardar referencia de ${imagen.originalname}`;
+
+        if (insertError.message?.includes('pattern') || insertError.message?.includes('formato')) {
+          errorMsg = `La URL de la imagen no tiene el formato esperado: ${urlData.publicUrl}`;
+        } else if (insertError.message) {
+          errorMsg = `${errorMsg}: ${insertError.message}`;
+        }
+
+        throw new Error(errorMsg);
       }
 
       return urlData.publicUrl;
