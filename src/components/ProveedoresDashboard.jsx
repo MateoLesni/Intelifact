@@ -57,20 +57,26 @@ function ProveedoresDashboard({ user }) {
   const formatearSoloFecha = (fechaISO) => {
     if (!fechaISO) return 'Sin fecha';
 
-    let fechaStr = fechaISO;
+    // Convertir a string por si viene como otro tipo
+    let fechaStr = String(fechaISO);
 
-    // Si la fecha no tiene 'Z' al final ni offset de zona horaria, agregarla
-    if (!fechaStr.endsWith('Z') && !fechaStr.includes('+') && !fechaStr.includes('T')) {
+    // Si la fecha no tiene 'Z' al final ni offset de zona horaria (+/-), agregarla
+    if (!fechaStr.endsWith('Z') && !fechaStr.match(/[+-]\d{2}:\d{2}$/) && !fechaStr.includes('T')) {
       // Es solo una fecha YYYY-MM-DD
       fechaStr = fechaStr + 'T00:00:00Z';
-    } else if (fechaStr.includes('T') && !fechaStr.endsWith('Z') && !fechaStr.includes('+')) {
+    } else if (fechaStr.includes('T') && !fechaStr.endsWith('Z') && !fechaStr.match(/[+-]\d{2}:\d{2}$/)) {
       // Tiene hora pero no zona horaria, asumir UTC
       fechaStr = fechaStr + 'Z';
     }
 
+    // Intentar crear fecha
     const fecha = new Date(fechaStr);
-    if (isNaN(fecha.getTime())) return 'Sin fecha';
+    if (isNaN(fecha.getTime())) {
+      console.warn('Fecha inválida:', fechaISO);
+      return 'Sin fecha';
+    }
 
+    // Formatear solo la fecha (sin hora) en zona horaria de Argentina
     const partes = new Intl.DateTimeFormat('es-AR', {
       timeZone: 'America/Argentina/Buenos_Aires',
       day: '2-digit',
