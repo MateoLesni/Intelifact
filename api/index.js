@@ -79,7 +79,7 @@ app.post('/api/auth/login', async (req, res) => {
 // Obtener facturas según rol
 app.get('/api/facturas', async (req, res) => {
   try {
-    const { rol, userId } = req.query;
+    const { rol, userId, vistaCompleta } = req.query;
 
     let query = supabase
       .from('facturas')
@@ -102,11 +102,11 @@ app.get('/api/facturas', async (req, res) => {
 
       const locales = userLocales?.map(ul => ul.local) || [];
       query = query.in('local', locales);
-    } else if (rol === 'proveedores' || rol === 'proveedores_viewer') {
-      // Solo facturas con MR
+    } else if (rol === 'proveedores' || (rol === 'proveedores_viewer' && vistaCompleta !== 'true')) {
+      // Solo facturas con MR (excepto proveedores_viewer con vistaCompleta)
       query = query.eq('mr_estado', true);
     }
-    // rol 'pedidos', 'pedidos_admin' y 'proveedores_viewer' ven todas las facturas
+    // rol 'pedidos', 'pedidos_admin' y 'proveedores_viewer' (con vistaCompleta) ven todas las facturas
 
     const { data: facturas, error } = await query;
 

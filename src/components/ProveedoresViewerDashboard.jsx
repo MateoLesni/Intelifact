@@ -57,7 +57,7 @@ function ProveedoresViewerDashboard({ user }) {
       {vistaActual === 'proveedores' ? (
         <ProveedoresDashboard user={user} />
       ) : (
-        <PedidosDashboard user={user} readOnly={true} />
+        <PedidosDashboard user={user} readOnly={true} vistaCompleta={true} />
       )}
     </div>
   );

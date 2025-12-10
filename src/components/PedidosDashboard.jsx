@@ -3,7 +3,7 @@ import HistorialAuditoria from './HistorialAuditoria';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
-const PedidosDashboard = forwardRef(({ user, readOnly = false }, ref) => {
+const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = false }, ref) => {
   useImperativeHandle(ref, () => ({
     openCreateUser: () => !readOnly && setShowCreateUser(true),
     openCreateProveedor: () => !readOnly && setShowCreateProveedor(true)
@@ -56,8 +56,8 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false }, ref) => {
     // Aplicar filtros
     let filtered = facturas;
 
-    // Filtro de locales seleccionados (para usuarios pedidos y pedidos_admin)
-    if ((user.rol === 'pedidos' || user.rol === 'pedidos_admin') && localesSeleccionados.length > 0) {
+    // Filtro de locales seleccionados (para usuarios pedidos, pedidos_admin y proveedores_viewer)
+    if ((user.rol === 'pedidos' || user.rol === 'pedidos_admin' || user.rol === 'proveedores_viewer') && localesSeleccionados.length > 0) {
       filtered = filtered.filter(f => localesSeleccionados.includes(f.local));
     }
 
@@ -92,7 +92,11 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false }, ref) => {
 
   const loadFacturas = async () => {
     try {
-      const response = await fetch(`${API_URL}/facturas?rol=${user.rol}&userId=${user.id}`);
+      // Si vistaCompleta es true, pasar parámetro adicional al backend
+      const url = vistaCompleta
+        ? `${API_URL}/facturas?rol=${user.rol}&userId=${user.id}&vistaCompleta=true`
+        : `${API_URL}/facturas?rol=${user.rol}&userId=${user.id}`;
+      const response = await fetch(url);
       const data = await response.json();
       // Ordenar por ID descendente (más recientes primero)
       const sortedData = data.sort((a, b) => b.id - a.id);
@@ -380,8 +384,8 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false }, ref) => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <h2 style={{ margin: 0 }}>Gestión de Facturas</h2>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Filtro de Locales - Para usuarios pedidos y pedidos_admin */}
-          {(user.rol === 'pedidos' || user.rol === 'pedidos_admin') && (
+          {/* Filtro de Locales - Para usuarios pedidos, pedidos_admin y proveedores_viewer */}
+          {(user.rol === 'pedidos' || user.rol === 'pedidos_admin' || user.rol === 'proveedores_viewer') && (
             <div style={{ position: 'relative' }}>
               <button
                 onClick={() => setShowLocalesFilter(!showLocalesFilter)}
