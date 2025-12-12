@@ -95,7 +95,12 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
         }
 
         const desde = new Date(rangoFechas.desde);
-        const hasta = new Date(rangoFechas.hasta);
+        // Si el preset es 30 o 60 días, usar SIEMPRE la fecha actual como "hasta"
+        // Esto evita que facturas recién cargadas no aparezcan por filtro desactualizado
+        const hasta = (rangoFechas.preset === '30' || rangoFechas.preset === '60')
+          ? new Date()  // HOY (en tiempo real)
+          : new Date(rangoFechas.hasta);  // Fecha guardada (solo para rangos personalizados)
+
         // Ajustar horas para comparar solo fechas
         fechaAFiltrar.setHours(0, 0, 0, 0);
         desde.setHours(0, 0, 0, 0);
