@@ -79,17 +79,19 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
     // Aplicar filtros
     let filtered = facturas;
 
-    // Filtro de rango de fechas
+    // Filtro de rango de fechas (usa created_at para mostrar facturas CARGADAS recientemente)
     if (rangoFechas.desde && rangoFechas.hasta) {
       filtered = filtered.filter(f => {
-        const fechaFactura = new Date(f.fecha);
+        // Usar created_at (fecha de carga) en vez de fecha (fecha de factura)
+        // Esto asegura que facturas recién cargadas siempre aparezcan
+        const fechaCarga = new Date(f.created_at);
         const desde = new Date(rangoFechas.desde);
         const hasta = new Date(rangoFechas.hasta);
         // Ajustar horas para comparar solo fechas
-        fechaFactura.setHours(0, 0, 0, 0);
+        fechaCarga.setHours(0, 0, 0, 0);
         desde.setHours(0, 0, 0, 0);
         hasta.setHours(23, 59, 59, 999);
-        return fechaFactura >= desde && fechaFactura <= hasta;
+        return fechaCarga >= desde && fechaCarga <= hasta;
       });
     }
 
@@ -583,7 +585,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                 zIndex: 1000
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #ecf0f1', paddingBottom: '0.5rem' }}>
-                  <strong style={{ fontSize: '0.9rem', color: '#2c3e50' }}>Rango de Fechas</strong>
+                  <strong style={{ fontSize: '0.9rem', color: '#2c3e50' }}>Rango de Fecha de Carga</strong>
                   <button
                     onClick={() => setShowRangoFechasModal(false)}
                     style={{
