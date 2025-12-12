@@ -82,11 +82,17 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
     // Filtro de rango de fechas
     if (rangoFechas.desde && rangoFechas.hasta) {
       filtered = filtered.filter(f => {
-        // Para proveedores_viewer: usar fecha de factura (para organizar por fecha MR)
+        // Para proveedores_viewer: usar fecha_mr (fecha en que se generó el MR)
         // Para pedidos/pedidos_admin: usar fecha de carga (para ver facturas recientes)
-        const fechaAFiltrar = user.rol === 'proveedores_viewer'
-          ? new Date(f.fecha)        // Proveedores ven por fecha de factura
-          : new Date(f.created_at);  // Pedidos ven por fecha de carga
+        let fechaAFiltrar;
+
+        if (user.rol === 'proveedores_viewer') {
+          // Si tiene MR, usar fecha_mr; si no tiene MR, no mostrar (ya se filtra en backend)
+          fechaAFiltrar = f.fecha_mr ? new Date(f.fecha_mr) : null;
+          if (!fechaAFiltrar) return false; // Excluir facturas sin fecha_mr
+        } else {
+          fechaAFiltrar = new Date(f.created_at);  // Pedidos ven por fecha de carga
+        }
 
         const desde = new Date(rangoFechas.desde);
         const hasta = new Date(rangoFechas.hasta);
@@ -589,7 +595,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #ecf0f1', paddingBottom: '0.5rem' }}>
                   <strong style={{ fontSize: '0.9rem', color: '#2c3e50' }}>
-                    {user.rol === 'proveedores_viewer' ? 'Rango de Fecha de Factura' : 'Rango de Fecha de Carga'}
+                    {user.rol === 'proveedores_viewer' ? 'Rango de Fecha de MR' : 'Rango de Fecha de Carga'}
                   </strong>
                   <button
                     onClick={() => setShowRangoFechasModal(false)}
