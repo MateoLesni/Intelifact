@@ -79,19 +79,22 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
     // Aplicar filtros
     let filtered = facturas;
 
-    // Filtro de rango de fechas (usa created_at para mostrar facturas CARGADAS recientemente)
+    // Filtro de rango de fechas
     if (rangoFechas.desde && rangoFechas.hasta) {
       filtered = filtered.filter(f => {
-        // Usar created_at (fecha de carga) en vez de fecha (fecha de factura)
-        // Esto asegura que facturas recién cargadas siempre aparezcan
-        const fechaCarga = new Date(f.created_at);
+        // Para proveedores_viewer: usar fecha de factura (para organizar por fecha MR)
+        // Para pedidos/pedidos_admin: usar fecha de carga (para ver facturas recientes)
+        const fechaAFiltrar = user.rol === 'proveedores_viewer'
+          ? new Date(f.fecha)        // Proveedores ven por fecha de factura
+          : new Date(f.created_at);  // Pedidos ven por fecha de carga
+
         const desde = new Date(rangoFechas.desde);
         const hasta = new Date(rangoFechas.hasta);
         // Ajustar horas para comparar solo fechas
-        fechaCarga.setHours(0, 0, 0, 0);
+        fechaAFiltrar.setHours(0, 0, 0, 0);
         desde.setHours(0, 0, 0, 0);
         hasta.setHours(23, 59, 59, 999);
-        return fechaCarga >= desde && fechaCarga <= hasta;
+        return fechaAFiltrar >= desde && fechaAFiltrar <= hasta;
       });
     }
 
@@ -585,7 +588,9 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                 zIndex: 1000
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #ecf0f1', paddingBottom: '0.5rem' }}>
-                  <strong style={{ fontSize: '0.9rem', color: '#2c3e50' }}>Rango de Fecha de Carga</strong>
+                  <strong style={{ fontSize: '0.9rem', color: '#2c3e50' }}>
+                    {user.rol === 'proveedores_viewer' ? 'Rango de Fecha de Factura' : 'Rango de Fecha de Carga'}
+                  </strong>
                   <button
                     onClick={() => setShowRangoFechasModal(false)}
                     style={{
