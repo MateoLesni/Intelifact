@@ -63,6 +63,14 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
     loadFacturas();
     loadAllLocales();
     loadProveedores();
+
+    // Auto-refresh cada 30 segundos para mantener datos actualizados
+    const intervalId = setInterval(() => {
+      loadFacturas();
+    }, 30000); // 30 segundos
+
+    // Limpiar intervalo al desmontar componente
+    return () => clearInterval(intervalId);
   }, []);
 
   // Guardar filtro de locales en localStorage cuando cambie
