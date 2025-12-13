@@ -90,7 +90,8 @@ app.get('/api/facturas', async (req, res) => {
         created_at,
         fecha_mr
       `)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(10000); // Límite amplio para evitar truncar datos (default de Supabase es 1000)
 
     // Filtrar según rol
     if (rol === 'operacion') {
@@ -111,6 +112,9 @@ app.get('/api/facturas', async (req, res) => {
     const { data: facturas, error } = await query;
 
     if (error) throw error;
+
+    // Log para verificar cantidad de registros (ayuda a detectar si estamos llegando al límite)
+    console.log(`[${new Date().toISOString()}] Facturas obtenidas: ${facturas?.length || 0} para rol: ${rol}, userId: ${userId}`);
 
     // Obtener categorías de los locales manualmente
     // Filtrar facturas que tengan local (ignorar las que tienen local null de facturas antiguas)
