@@ -6,7 +6,7 @@ import OperacionDashboard from './components/OperacionDashboard';
 import PedidosDashboard from './components/PedidosDashboard';
 import ProveedoresDashboard from './components/ProveedoresDashboard';
 import ProveedoresViewerDashboard from './components/ProveedoresViewerDashboard';
-import GestionDashboard from './components/GestionDashboard';
+import GestionViewerDashboard from './components/GestionViewerDashboard';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -67,7 +67,7 @@ function App() {
             ) : user.rol === 'proveedores_viewer' ? (
               <ProveedoresViewerDashboard user={user} />
             ) : user.rol === 'gestion' ? (
-              <GestionDashboard user={user} />
+              <GestionViewerDashboard user={user} />
             ) : (
               <Navigate to="/" />
             )
