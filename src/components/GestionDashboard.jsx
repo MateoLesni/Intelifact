@@ -125,7 +125,7 @@ function GestionDashboard({ user }) {
 
     facturasFiltradas.forEach(factura => {
       const local = factura.local || 'Sin local';
-      const mesAnio = obtenerMesAnio(factura.fecha_mr);
+      const mesAnio = obtenerMesAnio(factura.fecha); // Usar fecha de carga, NO fecha_mr
 
       if (!carpetas[local]) {
         carpetas[local] = {};
@@ -289,11 +289,11 @@ function GestionDashboard({ user }) {
           borderRadius: '12px',
           boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
         }}>
-          <h3 style={{ color: '#7f8c8d', marginBottom: '1rem' }}>📭 No hay facturas con MR</h3>
+          <h3 style={{ color: '#7f8c8d', marginBottom: '1rem' }}>📭 No hay facturas</h3>
           <p style={{ color: '#95a5a6' }}>
             {filtroGlobal ?
               'No se encontraron resultados para tu búsqueda. Intenta con otros términos.' :
-              'Aún no hay facturas con Material Request generado para mostrar.'
+              'Aún no hay facturas cargadas para mostrar.'
             }
           </p>
         </div>
