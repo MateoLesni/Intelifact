@@ -114,6 +114,9 @@ app.get('/api/facturas', async (req, res) => {
       } else if (rol === 'proveedores' || (rol === 'proveedores_viewer' && vistaCompleta !== 'true')) {
         // Solo facturas con MR (excepto proveedores_viewer con vistaCompleta)
         query = query.eq('mr_estado', true);
+      } else if (rol === 'gestion') {
+        // Gestión: Solo facturas con MR (igual que proveedores)
+        query = query.eq('mr_estado', true);
       }
       // rol 'pedidos', 'pedidos_admin' y 'proveedores_viewer' (con vistaCompleta) ven todas las facturas
 
