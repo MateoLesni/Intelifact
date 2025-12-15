@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -117,7 +119,7 @@ function GestionDashboard({ user }) {
     setImagenesEliminadas(prev => new Set([...prev, url]));
   };
 
-  // Organizar facturas por local y mes
+  // Organizar facturas por local y mes (SIN cargar imágenes todavía)
   const organizarPorLocalYMes = () => {
     const carpetas = {};
 
@@ -133,7 +135,7 @@ function GestionDashboard({ user }) {
         carpetas[local][mesAnio] = [];
       }
 
-      // Agregar solo las imágenes que NO han sido eliminadas
+      // Solo guardamos la referencia, no cargamos las imágenes todavía
       if (factura.factura_imagenes && factura.factura_imagenes.length > 0) {
         factura.factura_imagenes.forEach(img => {
           if (!imagenesEliminadas.has(img.imagen_url)) {
@@ -171,7 +173,7 @@ function GestionDashboard({ user }) {
     }
   };
 
-  // Descargar todas las imágenes de un mes
+  // Descargar todas las imágenes de un mes como ZIP
   const descargarTodasDelMes = async (local, mes) => {
     const imagenes = carpetas[local]?.[mes] || [];
 
@@ -181,19 +183,41 @@ function GestionDashboard({ user }) {
     }
 
     // Mostrar confirmación
-    if (!confirm(`¿Descargar ${imagenes.length} imágenes de ${local} - ${mes}?`)) {
+    if (!confirm(`¿Descargar ${imagenes.length} imágenes de ${local} - ${mes} como ZIP?`)) {
       return;
     }
 
-    // Descargar una por una con pequeño delay
-    for (let i = 0; i < imagenes.length; i++) {
-      const img = imagenes[i];
-      await descargarImagen(img.url, `${local}_${mes}_${i + 1}_${img.nombre}`);
-      // Pequeño delay para no saturar el navegador
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
+    try {
+      // Crear ZIP
+      const zip = new JSZip();
+      const carpetaLocal = zip.folder(`${local}_${mes.replace(/ /g, '_')}`);
 
-    alert(`Se descargaron ${imagenes.length} imágenes correctamente`);
+      // Mostrar progreso
+      const total = imagenes.length;
+      let descargadas = 0;
+
+      // Descargar y agregar cada imagen al ZIP
+      for (const img of imagenes) {
+        try {
+          const response = await fetch(img.url);
+          const blob = await response.blob();
+          carpetaLocal.file(img.nombre, blob);
+          descargadas++;
+          console.log(`Progreso: ${descargadas}/${total}`);
+        } catch (error) {
+          console.error(`Error descargando ${img.nombre}:`, error);
+        }
+      }
+
+      // Generar y descargar ZIP
+      const content = await zip.generateAsync({ type: 'blob' });
+      saveAs(content, `${local}_${mes.replace(/ /g, '_')}.zip`);
+
+      alert(`Se descargaron ${descargadas} de ${total} imágenes en un archivo ZIP`);
+    } catch (error) {
+      console.error('Error creando ZIP:', error);
+      alert('Error al crear el archivo ZIP');
+    }
   };
 
   if (loading) {
@@ -388,6 +412,7 @@ function GestionDashboard({ user }) {
                                 <img
                                   src={item.url}
                                   alt={item.nombre}
+                                  loading="lazy"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setSelectedImage(item.url);
