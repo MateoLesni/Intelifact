@@ -159,6 +159,13 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
         : `${API_URL}/facturas?rol=${user.rol}&userId=${user.id}`;
       const response = await fetch(url);
       const data = await response.json();
+
+      // WARNING: Detectar si los datos pueden estar truncados
+      if (data.length === 1000) {
+        console.warn('⚠️ ADVERTENCIA: Se obtuvieron exactamente 1000 registros. Los datos pueden estar truncados.');
+        console.warn('Si este número no cambia, verifica que el backend tenga .limit(10000) en la query.');
+      }
+
       // Ordenar por ID descendente (más recientes primero)
       const sortedData = data.sort((a, b) => b.id - a.id);
       setFacturas(sortedData);
