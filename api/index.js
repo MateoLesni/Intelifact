@@ -90,8 +90,7 @@ app.get('/api/facturas', async (req, res) => {
         created_at,
         fecha_mr
       `)
-      .order('created_at', { ascending: false })
-      .limit(10000); // Límite amplio para evitar truncar datos (default de Supabase es 1000)
+      .order('created_at', { ascending: false });
 
     // Filtrar según rol
     if (rol === 'operacion') {
@@ -108,6 +107,10 @@ app.get('/api/facturas', async (req, res) => {
       query = query.eq('mr_estado', true);
     }
     // rol 'pedidos', 'pedidos_admin' y 'proveedores_viewer' (con vistaCompleta) ven todas las facturas
+
+    // IMPORTANTE: Aplicar límite AL FINAL, después de todos los filtros
+    // Default de Supabase es 1000, ampliamos a 10000
+    query = query.limit(10000);
 
     const { data: facturas, error } = await query;
 
