@@ -59,15 +59,19 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
   });
   const [showRangoFechasModal, setShowRangoFechasModal] = useState(false);
 
+  // Paginación
+  const [paginaActual, setPaginaActual] = useState(1);
+  const registrosPorPagina = 500;
+
   useEffect(() => {
     loadFacturas();
     loadAllLocales();
     loadProveedores();
 
-    // Auto-refresh cada 30 segundos para mantener datos actualizados
+    // Auto-refresh cada 5 minutos para mantener datos actualizados
     const intervalId = setInterval(() => {
       loadFacturas();
-    }, 30000); // 30 segundos
+    }, 300000); // 5 minutos = 300000ms
 
     // Limpiar intervalo al desmontar componente
     return () => clearInterval(intervalId);
@@ -82,6 +86,11 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
   useEffect(() => {
     localStorage.setItem(`rangoFechas_${user.id}`, JSON.stringify(rangoFechas));
   }, [rangoFechas, user.id]);
+
+  useEffect(() => {
+    // Resetear a página 1 cuando cambien los filtros
+    setPaginaActual(1);
+  }, [filtros, filtroMR, localesSeleccionados, rangoFechas]);
 
   useEffect(() => {
     // Aplicar filtros
@@ -877,7 +886,9 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
               </tr>
             </thead>
             <tbody>
-              {facturasFiltradas.map((factura, index) => (
+              {facturasFiltradas
+                .slice((paginaActual - 1) * registrosPorPagina, paginaActual * registrosPorPagina)
+                .map((factura, index) => (
                 <tr key={factura.id} style={{ borderBottom: '1px solid #e1e8ed', backgroundColor: index % 2 === 0 ? 'white' : '#fafbfc', fontSize: '0.8rem' }}>
                   <td style={{ padding: '0.5rem 0.6rem', fontWeight: '500', color: '#666' }}>#{factura.id}</td>
 
@@ -1109,6 +1120,111 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
               ))}
             </tbody>
           </table>
+
+          {/* Paginación */}
+          {facturasFiltradas.length > registrosPorPagina && (
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '1.5rem 0',
+              backgroundColor: 'white',
+              borderTop: '2px solid #e1e8ed'
+            }}>
+              {/* Botón anterior */}
+              <button
+                onClick={() => {
+                  setPaginaActual(prev => Math.max(1, prev - 1));
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                disabled={paginaActual === 1}
+                style={{
+                  padding: '0.5rem 1rem',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  backgroundColor: paginaActual === 1 ? '#f5f5f5' : '#fff',
+                  color: paginaActual === 1 ? '#999' : '#333',
+                  cursor: paginaActual === 1 ? 'not-allowed' : 'pointer',
+                  fontWeight: '500'
+                }}
+              >
+                ← Anterior
+              </button>
+
+              {/* Números de página */}
+              {(() => {
+                const totalPaginas = Math.ceil(facturasFiltradas.length / registrosPorPagina);
+                const botonesPaginas = [];
+
+                // Mostrar máximo 7 botones de página
+                let inicio = Math.max(1, paginaActual - 3);
+                let fin = Math.min(totalPaginas, inicio + 6);
+
+                // Ajustar inicio si estamos cerca del final
+                if (fin - inicio < 6) {
+                  inicio = Math.max(1, fin - 6);
+                }
+
+                for (let i = inicio; i <= fin; i++) {
+                  botonesPaginas.push(
+                    <button
+                      key={i}
+                      onClick={() => {
+                        setPaginaActual(i);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      style={{
+                        padding: '0.5rem 0.75rem',
+                        border: paginaActual === i ? '2px solid #9b59b6' : '1px solid #ddd',
+                        borderRadius: '4px',
+                        backgroundColor: paginaActual === i ? '#9b59b6' : '#fff',
+                        color: paginaActual === i ? '#fff' : '#333',
+                        cursor: 'pointer',
+                        fontWeight: paginaActual === i ? '600' : '500',
+                        minWidth: '40px'
+                      }}
+                    >
+                      {i}
+                    </button>
+                  );
+                }
+
+                return botonesPaginas;
+              })()}
+
+              {/* Botón siguiente */}
+              <button
+                onClick={() => {
+                  const totalPaginas = Math.ceil(facturasFiltradas.length / registrosPorPagina);
+                  setPaginaActual(prev => Math.min(totalPaginas, prev + 1));
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                disabled={paginaActual >= Math.ceil(facturasFiltradas.length / registrosPorPagina)}
+                style={{
+                  padding: '0.5rem 1rem',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  backgroundColor: paginaActual >= Math.ceil(facturasFiltradas.length / registrosPorPagina) ? '#f5f5f5' : '#fff',
+                  color: paginaActual >= Math.ceil(facturasFiltradas.length / registrosPorPagina) ? '#999' : '#333',
+                  cursor: paginaActual >= Math.ceil(facturasFiltradas.length / registrosPorPagina) ? 'not-allowed' : 'pointer',
+                  fontWeight: '500'
+                }}
+              >
+                Siguiente →
+              </button>
+
+              {/* Información de página */}
+              <span style={{
+                marginLeft: '1rem',
+                color: '#666',
+                fontSize: '0.9rem'
+              }}>
+                Página {paginaActual} de {Math.ceil(facturasFiltradas.length / registrosPorPagina)}
+                ({facturasFiltradas.length} facturas)
+              </span>
+            </div>
+          )}
         </div>
       )}
 
