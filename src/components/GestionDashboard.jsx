@@ -256,6 +256,25 @@ function GestionDashboard({ user }) {
         )}
       </div>
 
+      {/* Mensaje cuando no hay facturas */}
+      {Object.keys(carpetas).length === 0 && (
+        <div style={{
+          padding: '3rem',
+          textAlign: 'center',
+          backgroundColor: 'white',
+          borderRadius: '12px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+        }}>
+          <h3 style={{ color: '#7f8c8d', marginBottom: '1rem' }}>📭 No hay facturas con MR</h3>
+          <p style={{ color: '#95a5a6' }}>
+            {filtroGlobal ?
+              'No se encontraron resultados para tu búsqueda. Intenta con otros términos.' :
+              'Aún no hay facturas con Material Request generado para mostrar.'
+            }
+          </p>
+        </div>
+      )}
+
       {/* Vista de carpetas por local */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
         {Object.keys(carpetas).sort().map(local => {
