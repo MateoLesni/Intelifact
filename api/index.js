@@ -81,40 +81,56 @@ app.get('/api/facturas', async (req, res) => {
   try {
     const { rol, userId, vistaCompleta } = req.query;
 
-    let query = supabase
-      .from('facturas')
-      .select(`
-        *,
-        factura_imagenes(imagen_url),
-        usuarios(nombre),
-        created_at,
-        fecha_mr
-      `)
-      .order('created_at', { ascending: false });
+    // IMPORTANTE: Supabase limita a 1000 registros por query
+    // Usamos paginación para obtener TODOS los registros
+    let allFacturas = [];
+    let from = 0;
+    const pageSize = 1000;
+    let hasMore = true;
 
-    // Filtrar según rol
-    if (rol === 'operacion') {
-      // Los usuarios de operación ven facturas de sus locales asignados
-      const { data: userLocales } = await supabase
-        .from('usuario_locales')
-        .select('local')
-        .eq('usuario_id', userId);
+    while (hasMore) {
+      let query = supabase
+        .from('facturas')
+        .select(`
+          *,
+          factura_imagenes(imagen_url),
+          usuarios(nombre),
+          created_at,
+          fecha_mr
+        `)
+        .order('created_at', { ascending: false })
+        .range(from, from + pageSize - 1);
 
-      const locales = userLocales?.map(ul => ul.local) || [];
-      query = query.in('local', locales);
-    } else if (rol === 'proveedores' || (rol === 'proveedores_viewer' && vistaCompleta !== 'true')) {
-      // Solo facturas con MR (excepto proveedores_viewer con vistaCompleta)
-      query = query.eq('mr_estado', true);
+      // Filtrar según rol
+      if (rol === 'operacion') {
+        // Los usuarios de operación ven facturas de sus locales asignados
+        const { data: userLocales } = await supabase
+          .from('usuario_locales')
+          .select('local')
+          .eq('usuario_id', userId);
+
+        const locales = userLocales?.map(ul => ul.local) || [];
+        query = query.in('local', locales);
+      } else if (rol === 'proveedores' || (rol === 'proveedores_viewer' && vistaCompleta !== 'true')) {
+        // Solo facturas con MR (excepto proveedores_viewer con vistaCompleta)
+        query = query.eq('mr_estado', true);
+      }
+      // rol 'pedidos', 'pedidos_admin' y 'proveedores_viewer' (con vistaCompleta) ven todas las facturas
+
+      const { data: pageData, error } = await query;
+
+      if (error) throw error;
+
+      if (pageData && pageData.length > 0) {
+        allFacturas = allFacturas.concat(pageData);
+        from += pageSize;
+        hasMore = pageData.length === pageSize; // Si trajo menos de 1000, ya no hay más
+      } else {
+        hasMore = false;
+      }
     }
-    // rol 'pedidos', 'pedidos_admin' y 'proveedores_viewer' (con vistaCompleta) ven todas las facturas
 
-    // IMPORTANTE: Aplicar límite AL FINAL, después de todos los filtros
-    // Default de Supabase es 1000, ampliamos a 10000
-    query = query.limit(10000);
-
-    const { data: facturas, error } = await query;
-
-    if (error) throw error;
+    const facturas = allFacturas;
 
     // Log para verificar cantidad de registros (ayuda a detectar si estamos llegando al límite)
     console.log(`[${new Date().toISOString()}] Facturas obtenidas: ${facturas?.length || 0} para rol: ${rol}, userId: ${userId}`);
