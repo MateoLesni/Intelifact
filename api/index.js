@@ -717,6 +717,113 @@ app.get('/api/auditoria', async (req, res) => {
   }
 });
 
+// ============ VERIFICACIÓN DE IMÁGENES ============
+
+// Verificar qué imágenes están rotas (no existen en Storage)
+app.get('/api/verificar-imagenes', async (req, res) => {
+  try {
+    console.log('Iniciando verificación de imágenes...');
+
+    // Obtener todas las referencias de imágenes
+    const { data: imagenes, error } = await supabase
+      .from('factura_imagenes')
+      .select('id, factura_id, imagen_url')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    console.log(`Total de referencias de imágenes: ${imagenes.length}`);
+
+    // Verificar cada imagen
+    const resultados = [];
+    let verificadas = 0;
+    let rotas = 0;
+    let funcionales = 0;
+
+    for (const img of imagenes) {
+      try {
+        // Hacer HEAD request para verificar si existe (más rápido que GET)
+        const response = await fetch(img.imagen_url, { method: 'HEAD' });
+
+        const estado = {
+          id: img.id,
+          factura_id: img.factura_id,
+          imagen_url: img.imagen_url,
+          existe: response.ok,
+          status_code: response.status
+        };
+
+        if (response.ok) {
+          funcionales++;
+        } else {
+          rotas++;
+          resultados.push(estado); // Solo guardar las rotas
+        }
+
+        verificadas++;
+
+        // Log cada 100 imágenes
+        if (verificadas % 100 === 0) {
+          console.log(`Progreso: ${verificadas}/${imagenes.length} (${rotas} rotas)`);
+        }
+      } catch (error) {
+        rotas++;
+        resultados.push({
+          id: img.id,
+          factura_id: img.factura_id,
+          imagen_url: img.imagen_url,
+          existe: false,
+          status_code: 'ERROR',
+          error: error.message
+        });
+      }
+    }
+
+    console.log(`Verificación completada: ${funcionales} funcionales, ${rotas} rotas`);
+
+    res.json({
+      total: imagenes.length,
+      verificadas,
+      funcionales,
+      rotas,
+      imagenesRotas: resultados
+    });
+  } catch (error) {
+    console.error('Error en verificación de imágenes:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Eliminar referencias huérfanas (imágenes que no existen en Storage)
+app.delete('/api/limpiar-referencias-huerfanas', async (req, res) => {
+  try {
+    const { imagenesRotas } = req.body; // Array de IDs de factura_imagenes a eliminar
+
+    if (!imagenesRotas || !Array.isArray(imagenesRotas)) {
+      return res.status(400).json({ error: 'Se requiere un array de IDs' });
+    }
+
+    console.log(`Eliminando ${imagenesRotas.length} referencias huérfanas...`);
+
+    const { data, error } = await supabase
+      .from('factura_imagenes')
+      .delete()
+      .in('id', imagenesRotas);
+
+    if (error) throw error;
+
+    console.log(`Referencias eliminadas exitosamente`);
+
+    res.json({
+      success: true,
+      eliminadas: imagenesRotas.length
+    });
+  } catch (error) {
+    console.error('Error eliminando referencias:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });

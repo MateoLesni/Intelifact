@@ -7,6 +7,7 @@ import PedidosDashboard from './components/PedidosDashboard';
 import ProveedoresDashboard from './components/ProveedoresDashboard';
 import ProveedoresViewerDashboard from './components/ProveedoresViewerDashboard';
 import GestionViewerDashboard from './components/GestionViewerDashboard';
+import ImagenVerifier from './components/ImagenVerifier';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -73,6 +74,10 @@ function App() {
             )
           }
         />
+        {/* Ruta de verificación de imágenes solo para pedidos_admin */}
+        {user.rol === 'pedidos_admin' && (
+          <Route path="/verificar-imagenes" element={<ImagenVerifier />} />
+        )}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>
