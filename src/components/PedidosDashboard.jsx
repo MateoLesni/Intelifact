@@ -20,6 +20,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
   const [selectedImages, setSelectedImages] = useState(null);
   const [expandedImage, setExpandedImage] = useState(null);
   const [showHistorial, setShowHistorial] = useState(null);
+  const [imagenesConError, setImagenesConError] = useState(new Set());
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [showCreateProveedor, setShowCreateProveedor] = useState(false);
   const [newUser, setNewUser] = useState({ nombre: '', password: '', email: '' });
@@ -300,6 +301,12 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
       console.error('Error al descargar imagen:', error);
       alert('Error al descargar la imagen');
     }
+  };
+
+  // Manejar error de carga de imagen
+  const handleImageError = (url) => {
+    console.error('Error al cargar imagen:', url);
+    setImagenesConError(prev => new Set([...prev, url]));
   };
 
   const handleCreateUser = async (e) => {
@@ -1266,54 +1273,111 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
               gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))',
               gap: '2rem'
             }}>
-              {selectedImages.map((img, index) => (
-                <div key={index} style={{
-                  border: '1px solid #ddd',
-                  borderRadius: '8px',
-                  overflow: 'hidden',
-                  backgroundColor: '#f9f9f9'
-                }}>
-                  <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => setExpandedImage(img.imagen_url)}>
-                    <img
-                      src={img.imagen_url}
-                      alt={`Imagen ${index + 1}`}
-                      style={{
-                        width: '100%',
-                        height: '400px',
-                        objectFit: 'contain',
-                        backgroundColor: '#fff',
-                        transition: 'transform 0.2s'
-                      }}
-                      onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
-                      onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                    />
-                    <div style={{
-                      position: 'absolute',
-                      top: '10px',
-                      right: '10px',
-                      backgroundColor: 'rgba(0,0,0,0.6)',
-                      color: 'white',
-                      padding: '5px 10px',
-                      borderRadius: '4px',
-                      fontSize: '0.85rem'
-                    }}>
-                      🔍 Click para ampliar
+              {selectedImages.map((img, index) => {
+                const tieneError = imagenesConError.has(img.imagen_url);
+
+                return (
+                  <div key={index} style={{
+                    border: tieneError ? '2px solid #e74c3c' : '1px solid #ddd',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    backgroundColor: tieneError ? '#fee' : '#f9f9f9'
+                  }}>
+                    <div style={{ position: 'relative', cursor: tieneError ? 'default' : 'pointer' }} onClick={() => !tieneError && setExpandedImage(img.imagen_url)}>
+                      {tieneError ? (
+                        // Mostrar estado de error
+                        <div style={{
+                          width: '100%',
+                          height: '400px',
+                          backgroundColor: '#f8d7da',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#721c24',
+                          padding: '2rem'
+                        }}>
+                          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>⚠️</div>
+                          <h4 style={{ marginBottom: '0.5rem' }}>Imagen no disponible</h4>
+                          <p style={{ fontSize: '0.85rem', textAlign: 'center', marginBottom: '1rem' }}>
+                            La imagen no se pudo cargar. Puede haber sido eliminada del servidor o la URL es inválida.
+                          </p>
+                          <details style={{ width: '100%', marginTop: '1rem' }}>
+                            <summary style={{ cursor: 'pointer', fontSize: '0.8rem', color: '#666' }}>Ver URL</summary>
+                            <code style={{
+                              display: 'block',
+                              marginTop: '0.5rem',
+                              padding: '0.5rem',
+                              backgroundColor: '#fff',
+                              fontSize: '0.7rem',
+                              wordBreak: 'break-all',
+                              borderRadius: '4px'
+                            }}>
+                              {img.imagen_url}
+                            </code>
+                          </details>
+                        </div>
+                      ) : (
+                        // Mostrar imagen normal
+                        <>
+                          <img
+                            src={img.imagen_url}
+                            alt={`Imagen ${index + 1}`}
+                            onError={() => handleImageError(img.imagen_url)}
+                            style={{
+                              width: '100%',
+                              height: '400px',
+                              objectFit: 'contain',
+                              backgroundColor: '#fff',
+                              transition: 'transform 0.2s'
+                            }}
+                            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                            onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                          />
+                          <div style={{
+                            position: 'absolute',
+                            top: '10px',
+                            right: '10px',
+                            backgroundColor: 'rgba(0,0,0,0.6)',
+                            color: 'white',
+                            padding: '5px 10px',
+                            borderRadius: '4px',
+                            fontSize: '0.85rem'
+                          }}>
+                            🔍 Click para ampliar
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    <div style={{ padding: '1rem' }}>
+                      <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.5rem' }}>
+                        Imagen {index + 1} de {selectedImages.length}
+                      </p>
+                      {!tieneError && (
+                        <button
+                          onClick={() => descargarImagen(img.imagen_url, `factura_imagen_${index + 1}.jpg`)}
+                          className="btn btn-primary"
+                          style={{ width: '100%' }}
+                        >
+                          ⬇️ Descargar Imagen
+                        </button>
+                      )}
+                      {tieneError && (
+                        <button
+                          onClick={() => {
+                            // Intentar abrir en nueva pestaña para verificar
+                            window.open(img.imagen_url, '_blank');
+                          }}
+                          className="btn btn-secondary"
+                          style={{ width: '100%', backgroundColor: '#6c757d' }}
+                        >
+                          🔗 Abrir URL en nueva pestaña
+                        </button>
+                      )}
                     </div>
                   </div>
-                  <div style={{ padding: '1rem' }}>
-                    <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.5rem' }}>
-                      Imagen {index + 1} de {selectedImages.length}
-                    </p>
-                    <button
-                      onClick={() => descargarImagen(img.imagen_url, `factura_imagen_${index + 1}.jpg`)}
-                      className="btn btn-primary"
-                      style={{ width: '100%' }}
-                    >
-                      ⬇️ Descargar Imagen
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
