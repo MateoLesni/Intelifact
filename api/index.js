@@ -301,6 +301,11 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
         throw new Error(`No se pudo obtener URL pública para ${imagen.originalname}`);
       }
 
+      console.log('URL generada:', urlData.publicUrl);
+      console.log('Nombre de archivo original:', imagen.originalname);
+      console.log('Nombre de archivo sanitizado:', sanitizedName);
+      console.log('Nombre de archivo final:', fileName);
+
       // Insertar referencia en la tabla
       const imagenData = {
         factura_id: factura.id,
