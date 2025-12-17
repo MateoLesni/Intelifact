@@ -770,7 +770,10 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
               alignItems: 'center',
               gap: '0.5rem'
             }}>
-              📅 Filtrado por Fecha MR: {new Date(filtroFechaMR + 'T00:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+              📅 Filtrado por Fecha MR: {(() => {
+                const [year, month, day] = filtroFechaMR.split('-');
+                return `${day}/${month}/${year}`;
+              })()}
               <button
                 onClick={() => setFiltroFechaMR('')}
                 style={{
