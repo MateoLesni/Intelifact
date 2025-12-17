@@ -62,43 +62,31 @@ function ProveedoresDashboard({ user }) {
     }
   };
 
-  // Función para formatear solo la fecha en zona horaria de Argentina
+  // Función para formatear solo la fecha
+  // CRÍTICO: fecha_mr viene como YYYY-MM-DD (sin hora, sin zona horaria)
+  // NO aplicar conversión de zona horaria para evitar cambios de día
   const formatearSoloFecha = (fechaISO) => {
     if (!fechaISO) return 'Sin fecha';
 
     // Convertir a string por si viene como otro tipo
-    let fechaStr = String(fechaISO);
+    let fechaStr = String(fechaISO).trim();
 
-    // Si la fecha no tiene 'Z' al final ni offset de zona horaria (+/-), agregarla
-    if (!fechaStr.endsWith('Z') && !fechaStr.match(/[+-]\d{2}:\d{2}$/) && !fechaStr.includes('T')) {
-      // Es solo una fecha YYYY-MM-DD
-      fechaStr = fechaStr + 'T00:00:00Z';
-    } else if (fechaStr.includes('T') && !fechaStr.endsWith('Z') && !fechaStr.match(/[+-]\d{2}:\d{2}$/)) {
-      // Tiene hora pero no zona horaria, asumir UTC
-      fechaStr = fechaStr + 'Z';
+    // Si es formato YYYY-MM-DD (sin hora), parsearlo directamente SIN zona horaria
+    if (/^\d{4}-\d{2}-\d{2}$/.test(fechaStr)) {
+      const [year, month, day] = fechaStr.split('-');
+      return `${day}/${month}/${year}`;
     }
 
-    // Intentar crear fecha
-    const fecha = new Date(fechaStr);
-    if (isNaN(fecha.getTime())) {
-      console.warn('Fecha inválida:', fechaISO);
-      return 'Sin fecha';
+    // Si tiene timestamp completo (legacy), extraer solo la fecha
+    if (fechaStr.includes('T')) {
+      const soloFecha = fechaStr.split('T')[0];
+      const [year, month, day] = soloFecha.split('-');
+      return `${day}/${month}/${year}`;
     }
 
-    // Formatear solo la fecha (sin hora) en zona horaria de Argentina
-    const partes = new Intl.DateTimeFormat('es-AR', {
-      timeZone: 'America/Argentina/Buenos_Aires',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    }).formatToParts(fecha);
-
-    const valores = {};
-    partes.forEach(({ type, value }) => {
-      valores[type] = value;
-    });
-
-    return `${valores.day}/${valores.month}/${valores.year}`;
+    // Fallback para formatos no esperados
+    console.warn('Formato de fecha inesperado:', fechaISO);
+    return 'Sin fecha';
   };
 
   // Manejar error de carga de imagen (marcarla como eliminada)

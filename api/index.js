@@ -446,9 +446,14 @@ app.post('/api/facturas/:id/mr', async (req, res) => {
       .eq('id', id)
       .single();
 
-    // Obtener fecha y hora actual en zona horaria de Argentina (Buenos Aires)
-    // Guardamos como timestamp ISO para mantener fecha y hora completa
-    const fechaMR = new Date().toISOString();
+    // CRÍTICO PARA PROVEEDORES: La fecha_mr NUNCA debe cambiar una vez establecida
+    // Esto garantiza que las facturas permanezcan en la misma carpeta de fecha
+    // y los conteos no cambien día a día
+
+    // Si ya tiene fecha_mr (re-generación de MR), mantener la original
+    // Si es primera vez, usar SOLO LA FECHA (sin hora) para evitar problemas de zona horaria
+    // Formato: YYYY-MM-DD (sin timestamp, sin zona horaria)
+    const fechaMR = facturaAnterior.fecha_mr || new Date().toISOString().split('T')[0];
 
     // Actualizar factura con MR y fecha_mr
     const { data: factura, error } = await supabase
@@ -456,7 +461,7 @@ app.post('/api/facturas/:id/mr', async (req, res) => {
       .update({
         mr_numero,
         mr_estado: true,
-        fecha_mr: fechaMR, // Timestamp completo con fecha y hora
+        fecha_mr: fechaMR, // Inmutable: primera vez = hoy, regeneración = fecha original
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
