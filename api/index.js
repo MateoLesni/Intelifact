@@ -96,7 +96,8 @@ app.get('/api/facturas', async (req, res) => {
           factura_imagenes(imagen_url),
           usuarios(nombre),
           created_at,
-          fecha_mr
+          fecha_mr,
+          fecha_mr_timestamp
         `)
         .order('created_at', { ascending: false })
         .range(from, from + pageSize - 1);
@@ -450,18 +451,23 @@ app.post('/api/facturas/:id/mr', async (req, res) => {
     // Esto garantiza que las facturas permanezcan en la misma carpeta de fecha
     // y los conteos no cambien día a día
 
-    // Si ya tiene fecha_mr (re-generación de MR), mantener la original
-    // Si es primera vez, usar SOLO LA FECHA (sin hora) para evitar problemas de zona horaria
-    // Formato: YYYY-MM-DD (sin timestamp, sin zona horaria)
-    const fechaMR = facturaAnterior.fecha_mr || new Date().toISOString().split('T')[0];
+    const ahora = new Date();
+    const timestampCompleto = ahora.toISOString(); // Para fecha_mr_timestamp (con hora)
+    const soloFecha = ahora.toISOString().split('T')[0]; // Para fecha_mr (sin hora)
 
-    // Actualizar factura con MR y fecha_mr
+    // Si ya tiene fecha_mr (re-generación de MR), mantener las fechas originales
+    // Si es primera vez, establecer ambas fechas
+    const fechaMR_date = facturaAnterior.fecha_mr || soloFecha;
+    const fechaMR_timestamp = facturaAnterior.fecha_mr_timestamp || timestampCompleto;
+
+    // Actualizar factura con MR y ambas fechas
     const { data: factura, error } = await supabase
       .from('facturas')
       .update({
         mr_numero,
         mr_estado: true,
-        fecha_mr: fechaMR, // Inmutable: primera vez = hoy, regeneración = fecha original
+        fecha_mr: fechaMR_date, // DATE (YYYY-MM-DD) - Para Proveedores, inmutable
+        fecha_mr_timestamp: fechaMR_timestamp, // TIMESTAMP - Para Pedidos (cálculo demoras), inmutable
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
