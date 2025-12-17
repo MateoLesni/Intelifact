@@ -419,22 +419,7 @@ app.delete('/api/facturas/:id', async (req, res) => {
       .eq('id', id)
       .single();
 
-    // Eliminar imágenes del storage
-    const imagenes = facturaAnterior.factura_imagenes || [];
-    for (const img of imagenes) {
-      const fileName = img.imagen_url.split('/').pop();
-      await supabase.storage.from('facturas').remove([fileName]);
-    }
-
-    // Eliminar factura (cascade eliminará las referencias)
-    const { error } = await supabase
-      .from('facturas')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw error;
-
-    // Registrar en auditoría
+    // IMPORTANTE: Registrar en auditoría ANTES de eliminar (por el foreign key constraint)
     console.log('Registrando eliminación en auditoría...');
     console.log('factura_id:', id);
     console.log('usuario_id:', usuario_id);
@@ -452,9 +437,25 @@ app.delete('/api/facturas/:id', async (req, res) => {
     if (auditoriaError) {
       console.error('ERROR al guardar auditoría de eliminación:', auditoriaError);
       console.error('Detalles:', JSON.stringify(auditoriaError, null, 2));
+      throw new Error('No se pudo registrar la auditoría: ' + auditoriaError.message);
     } else {
       console.log('✅ Auditoría de eliminación guardada correctamente');
     }
+
+    // Eliminar imágenes del storage
+    const imagenes = facturaAnterior.factura_imagenes || [];
+    for (const img of imagenes) {
+      const fileName = img.imagen_url.split('/').pop();
+      await supabase.storage.from('facturas').remove([fileName]);
+    }
+
+    // Eliminar factura (cascade eliminará las referencias)
+    const { error } = await supabase
+      .from('facturas')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
 
     res.json({ message: 'Factura eliminada correctamente' });
   } catch (error) {
