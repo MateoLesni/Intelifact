@@ -383,7 +383,8 @@ app.put('/api/facturas/:id', async (req, res) => {
     if (error) throw error;
 
     // Registrar en auditoría
-    await supabase
+    console.log('Registrando modificación en auditoría...');
+    const { error: auditoriaError } = await supabase
       .from('auditoria')
       .insert({
         factura_id: parseInt(id),
@@ -392,6 +393,12 @@ app.put('/api/facturas/:id', async (req, res) => {
         datos_anteriores: facturaAnterior,
         datos_nuevos: data
       });
+
+    if (auditoriaError) {
+      console.error('ERROR al guardar auditoría de modificación:', auditoriaError);
+    } else {
+      console.log('✅ Auditoría de modificación guardada correctamente');
+    }
 
     res.json(data);
   } catch (error) {
@@ -428,7 +435,11 @@ app.delete('/api/facturas/:id', async (req, res) => {
     if (error) throw error;
 
     // Registrar en auditoría
-    await supabase
+    console.log('Registrando eliminación en auditoría...');
+    console.log('factura_id:', id);
+    console.log('usuario_id:', usuario_id);
+
+    const { error: auditoriaError } = await supabase
       .from('auditoria')
       .insert({
         factura_id: parseInt(id),
@@ -437,6 +448,13 @@ app.delete('/api/facturas/:id', async (req, res) => {
         datos_anteriores: facturaAnterior,
         datos_nuevos: null
       });
+
+    if (auditoriaError) {
+      console.error('ERROR al guardar auditoría de eliminación:', auditoriaError);
+      console.error('Detalles:', JSON.stringify(auditoriaError, null, 2));
+    } else {
+      console.log('✅ Auditoría de eliminación guardada correctamente');
+    }
 
     res.json({ message: 'Factura eliminada correctamente' });
   } catch (error) {
@@ -548,7 +566,8 @@ app.post('/api/facturas/:id/mr', async (req, res) => {
     }
 
     // Registrar en auditoría
-    await supabase
+    console.log('Registrando generación de MR en auditoría...');
+    const { error: auditoriaError } = await supabase
       .from('auditoria')
       .insert({
         factura_id: parseInt(id),
@@ -557,6 +576,12 @@ app.post('/api/facturas/:id/mr', async (req, res) => {
         datos_anteriores: facturaAnterior,
         datos_nuevos: factura
       });
+
+    if (auditoriaError) {
+      console.error('ERROR al guardar auditoría de generación MR:', auditoriaError);
+    } else {
+      console.log('✅ Auditoría de generación MR guardada correctamente');
+    }
 
     res.json(factura);
   } catch (error) {
