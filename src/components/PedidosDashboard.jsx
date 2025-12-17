@@ -1085,7 +1085,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                   </td>
 
                   <td style={{ padding: '0.5rem 0.6rem', color: '#666', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
-                    {factura.fecha_mr ? formatearFechaHoraArgentina(factura.fecha_mr) : '-'}
+                    {factura.fecha_mr_timestamp ? formatearFechaHoraArgentina(factura.fecha_mr_timestamp) : (factura.fecha_mr ? formatearFechaHoraArgentina(factura.fecha_mr, true) : '-')}
                   </td>
 
                   <td style={{ padding: '0.5rem 0.6rem', textAlign: 'center' }}>
