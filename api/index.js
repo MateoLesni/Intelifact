@@ -230,17 +230,22 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
       .single();
 
     if (facturaError) {
-      console.error('Error de Supabase al insertar factura:', facturaError);
-      console.error('Datos que causaron el error:', facturaData);
+      console.error('========================================');
+      console.error('ERROR AL INSERTAR FACTURA');
+      console.error('========================================');
+      console.error('Error completo:', JSON.stringify(facturaError, null, 2));
+      console.error('Mensaje:', facturaError.message);
+      console.error('Código:', facturaError.code);
+      console.error('Detalles:', facturaError.details);
+      console.error('Hint:', facturaError.hint);
+      console.error('Datos enviados:', JSON.stringify(facturaData, null, 2));
+      console.error('========================================');
 
       // Proporcionar mensajes más específicos según el tipo de error
       let errorMsg = 'Error al crear la factura';
 
       if (facturaError.message?.includes('pattern') || facturaError.message?.includes('formato')) {
-        errorMsg = 'Uno de los campos tiene un formato inválido. Verifique que:\n' +
-                   '- El número de factura solo contenga números\n' +
-                   '- El número de OC solo contenga números\n' +
-                   '- La fecha esté en formato correcto';
+        errorMsg = `ERROR DE FORMATO: ${facturaError.message}\n\nDatos enviados:\n${JSON.stringify(facturaData, null, 2)}`;
       } else if (facturaError.code === '23505') {
         errorMsg = 'Ya existe una factura con ese número. Verifique el número de factura.';
       } else if (facturaError.code === '23503') {
