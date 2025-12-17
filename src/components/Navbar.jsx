@@ -9,7 +9,8 @@ function Navbar({ user, onLogout, onCreateUser, onCreateProveedor }) {
     operacion: 'Operación',
     pedidos: 'Pedidos',
     pedidos_admin: 'Pedidos Admin',
-    proveedores: 'Proveedores'
+    proveedores: 'Proveedores',
+    gestion: 'Gestión'
   };
 
   const enVerificador = location.pathname === '/verificar-imagenes';
@@ -20,39 +21,37 @@ function Navbar({ user, onLogout, onCreateUser, onCreateProveedor }) {
       <div className="navbar-info">
         <span>{user.nombre}</span>
         <span>Rol: {rolNames[user.rol]}</span>
-        {user.rol === 'pedidos_admin' && (
+        {user.rol === 'pedidos_admin' && !enVerificador && (
           <>
-            {!enVerificador && (
-              <>
-                <button
-                  onClick={onCreateUser}
-                  className="btn btn-success"
-                  style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}
-                >
-                  + Crear Usuario
-                </button>
-                <button
-                  onClick={onCreateProveedor}
-                  className="btn btn-success"
-                  style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}
-                >
-                  + Crear Proveedor
-                </button>
-              </>
-            )}
             <button
-              onClick={() => navigate(enVerificador ? '/' : '/verificar-imagenes')}
-              className="btn"
-              style={{
-                fontSize: '0.875rem',
-                padding: '0.5rem 1rem',
-                backgroundColor: enVerificador ? '#95a5a6' : '#e67e22',
-                color: 'white'
-              }}
+              onClick={onCreateUser}
+              className="btn btn-success"
+              style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}
             >
-              {enVerificador ? '← Volver a Facturas' : '🔍 Verificar Imágenes'}
+              + Crear Usuario
+            </button>
+            <button
+              onClick={onCreateProveedor}
+              className="btn btn-success"
+              style={{ fontSize: '0.875rem', padding: '0.5rem 1rem' }}
+            >
+              + Crear Proveedor
             </button>
           </>
+        )}
+        {user.rol === 'gestion' && (
+          <button
+            onClick={() => navigate(enVerificador ? '/' : '/verificar-imagenes')}
+            className="btn"
+            style={{
+              fontSize: '0.875rem',
+              padding: '0.5rem 1rem',
+              backgroundColor: enVerificador ? '#95a5a6' : '#e67e22',
+              color: 'white'
+            }}
+          >
+            {enVerificador ? '← Volver a Facturas' : '🔍 Verificar Imágenes'}
+          </button>
         )}
         <button onClick={onLogout} className="btn btn-secondary">
           Cerrar Sesión
