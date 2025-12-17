@@ -35,6 +35,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
     mr_numero: ''
   });
   const [filtroMR, setFiltroMR] = useState('todos'); // 'todos', 'con_mr', 'sin_mr'
+  const [filtroFechaMR, setFiltroFechaMR] = useState(''); // Filtro por fecha de MR (YYYY-MM-DD)
   const [localesSeleccionados, setLocalesSeleccionados] = useState(() => {
     // Cargar filtro de locales desde localStorage
     const saved = localStorage.getItem(`filtroLocales_${user.id}`);
@@ -91,7 +92,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
   useEffect(() => {
     // Resetear a página 1 cuando cambien los filtros
     setPaginaActual(1);
-  }, [filtros, filtroMR, localesSeleccionados, rangoFechas]);
+  }, [filtros, filtroMR, filtroFechaMR, localesSeleccionados, rangoFechas]);
 
   useEffect(() => {
     // Aplicar filtros
@@ -139,6 +140,16 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
       filtered = filtered.filter(f => !f.mr_estado || f.mr_estado === false);
     }
 
+    // Filtro por fecha de MR (calendario)
+    if (filtroFechaMR.trim()) {
+      filtered = filtered.filter(f => {
+        if (!f.fecha_mr) return false; // Solo facturas con MR
+        // Comparar solo la fecha (YYYY-MM-DD)
+        const fechaMRFactura = f.fecha_mr.split('T')[0]; // Extraer solo YYYY-MM-DD
+        return fechaMRFactura === filtroFechaMR;
+      });
+    }
+
     // Filtros de columnas
     Object.keys(filtros).forEach(key => {
       if (filtros[key].trim()) {
@@ -159,7 +170,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
     });
 
     setFacturasFiltradas(filtered);
-  }, [filtros, filtroMR, facturas, localesSeleccionados, rangoFechas, user.rol]);
+  }, [filtros, filtroMR, filtroFechaMR, facturas, localesSeleccionados, rangoFechas, user.rol]);
 
   const loadFacturas = async () => {
     try {
@@ -746,6 +757,38 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
             )}
           </div>
 
+          {filtroFechaMR && (
+            <div style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#fff3cd',
+              border: '1px solid #ffc107',
+              borderRadius: '4px',
+              fontSize: '0.875rem',
+              color: '#856404',
+              fontWeight: '500',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}>
+              📅 Filtrado por Fecha MR: {new Date(filtroFechaMR + 'T00:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+              <button
+                onClick={() => setFiltroFechaMR('')}
+                style={{
+                  background: '#856404',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '3px',
+                  padding: '2px 8px',
+                  fontSize: '0.75rem',
+                  cursor: 'pointer',
+                  fontWeight: '600'
+                }}
+              >
+                ✕ Quitar
+              </button>
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: '0.5rem', backgroundColor: '#ecf0f1', padding: '0.25rem', borderRadius: '6px' }}>
             <button
               onClick={() => setFiltroMR('todos')}
@@ -888,7 +931,37 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                     style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem' }}
                   />
                 </th>
-                <th style={{ padding: '0.5rem' }}></th>
+                <th style={{ padding: '0.5rem' }}>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="date"
+                      value={filtroFechaMR}
+                      onChange={(e) => setFiltroFechaMR(e.target.value)}
+                      style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem' }}
+                    />
+                    {filtroFechaMR && (
+                      <button
+                        onClick={() => setFiltroFechaMR('')}
+                        style={{
+                          position: 'absolute',
+                          right: '5px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: '#e74c3c',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '3px',
+                          padding: '2px 6px',
+                          fontSize: '0.75rem',
+                          cursor: 'pointer',
+                          fontWeight: '600'
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </th>
                 <th style={{ padding: '0.5rem' }}></th>
               </tr>
             </thead>

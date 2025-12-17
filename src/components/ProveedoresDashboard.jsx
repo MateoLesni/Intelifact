@@ -14,7 +14,7 @@ function ProveedoresDashboard({ user }) {
   const [filtroGlobal, setFiltroGlobal] = useState('');
   const [filtroNombreArchivo, setFiltroNombreArchivo] = useState('');
   const [zoomLevel, setZoomLevel] = useState(1);
-  const [imagenesEliminadas, setImagenesEliminadas] = useState(new Set());
+  const [imagenesRotas, setImagenesRotas] = useState(new Set());
 
   useEffect(() => {
     loadFacturas();
@@ -89,9 +89,9 @@ function ProveedoresDashboard({ user }) {
     return 'Sin fecha';
   };
 
-  // Manejar error de carga de imagen (marcarla como eliminada)
+  // Manejar error de carga de imagen (marcarla como rota, pero NO filtrarla)
   const handleImagenError = (url) => {
-    setImagenesEliminadas(prev => new Set([...prev, url]));
+    setImagenesRotas(prev => new Set([...prev, url]));
   };
 
   // Organizar facturas por categoría y fecha
@@ -113,17 +113,14 @@ function ProveedoresDashboard({ user }) {
         carpetas[categoria][fechaMR] = [];
       }
 
-      // Agregar solo las imágenes que NO han sido eliminadas
+      // Agregar TODAS las imágenes (incluyendo las rotas)
       if (factura.factura_imagenes && factura.factura_imagenes.length > 0) {
         factura.factura_imagenes.forEach(img => {
-          // Excluir imágenes que fallaron al cargar (eliminadas)
-          if (!imagenesEliminadas.has(img.imagen_url)) {
-            carpetas[categoria][fechaMR].push({
-              url: img.imagen_url,
-              nombre: img.imagen_url.split('/').pop(),
-              factura: factura
-            });
-          }
+          carpetas[categoria][fechaMR].push({
+            url: img.imagen_url,
+            nombre: img.imagen_url.split('/').pop(),
+            factura: factura
+          });
         });
       }
     });
@@ -329,6 +326,9 @@ function ProveedoresDashboard({ user }) {
       )
     : todasImagenes;
 
+  // Contar imágenes rotas en esta carpeta
+  const imagenesRotasEnCarpeta = todasImagenes.filter(item => imagenesRotas.has(item.url)).length;
+
   return (
     <div className="container">
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -341,6 +341,19 @@ function ProveedoresDashboard({ user }) {
         >
           Descargar Todas las Imágenes ({todasImagenes.length})
         </button>
+        {imagenesRotasEnCarpeta > 0 && (
+          <div style={{
+            padding: '0.75rem 1rem',
+            backgroundColor: '#fff3cd',
+            border: '1px solid #ffc107',
+            borderRadius: '4px',
+            fontSize: '0.9rem',
+            color: '#856404',
+            fontWeight: '500'
+          }}>
+            ⚠️ {imagenesRotasEnCarpeta} imagen{imagenesRotasEnCarpeta !== 1 ? 'es' : ''} no disponible{imagenesRotasEnCarpeta !== 1 ? 's' : ''}
+          </div>
+        )}
         <input
           type="text"
           value={filtroNombreArchivo}
@@ -376,44 +389,68 @@ function ProveedoresDashboard({ user }) {
         gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
         gap: '1.5rem'
       }}>
-        {imagenes.map((item, index) => (
-          <div
-            key={index}
-            style={{
-              border: '1px solid #ddd',
-              borderRadius: '8px',
-              overflow: 'hidden',
-              backgroundColor: '#f9f9f9'
-            }}
-          >
-            <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => { setSelectedImage(item.url); setZoomLevel(1); }}>
-              <img
-                src={item.url}
-                alt={item.nombre}
-                style={{
-                  width: '100%',
-                  height: '250px',
-                  objectFit: 'contain',
-                  backgroundColor: '#fff',
-                  transition: 'transform 0.2s'
-                }}
-                onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
-                onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                onError={() => handleImagenError(item.url)}
-              />
-              <div style={{
-                position: 'absolute',
-                top: '10px',
-                right: '10px',
-                backgroundColor: 'rgba(0,0,0,0.6)',
-                color: 'white',
-                padding: '5px 10px',
-                borderRadius: '4px',
-                fontSize: '0.85rem'
-              }}>
-                🔍 Click para ampliar
+        {imagenes.map((item, index) => {
+          const estaRota = imagenesRotas.has(item.url);
+
+          return (
+            <div
+              key={index}
+              style={{
+                border: estaRota ? '2px solid #dc3545' : '1px solid #ddd',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                backgroundColor: estaRota ? '#fff5f5' : '#f9f9f9'
+              }}
+            >
+              <div style={{ position: 'relative', cursor: estaRota ? 'default' : 'pointer' }} onClick={() => { if (!estaRota) { setSelectedImage(item.url); setZoomLevel(1); } }}>
+                {estaRota ? (
+                  <div style={{
+                    width: '100%',
+                    height: '250px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: '#fff',
+                    color: '#dc3545'
+                  }}>
+                    <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>⚠️</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.5rem' }}>Imagen No Disponible</div>
+                    <div style={{ fontSize: '0.85rem', color: '#6c757d', textAlign: 'center', padding: '0 1rem' }}>
+                      Esta imagen fue eliminada del storage
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <img
+                      src={item.url}
+                      alt={item.nombre}
+                      style={{
+                        width: '100%',
+                        height: '250px',
+                        objectFit: 'contain',
+                        backgroundColor: '#fff',
+                        transition: 'transform 0.2s'
+                      }}
+                      onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                      onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                      onError={() => handleImagenError(item.url)}
+                    />
+                    <div style={{
+                      position: 'absolute',
+                      top: '10px',
+                      right: '10px',
+                      backgroundColor: 'rgba(0,0,0,0.6)',
+                      color: 'white',
+                      padding: '5px 10px',
+                      borderRadius: '4px',
+                      fontSize: '0.85rem'
+                    }}>
+                      🔍 Click para ampliar
+                    </div>
+                  </>
+                )}
               </div>
-            </div>
             <div style={{ padding: '0.75rem' }}>
               <p style={{
                 fontSize: '0.8rem',
