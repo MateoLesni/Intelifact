@@ -485,7 +485,8 @@ function ProveedoresDashboard({ user }) {
               </button>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Modal de imagen expandida con zoom */}
