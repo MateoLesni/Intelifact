@@ -8,11 +8,13 @@ const app = express();
 
 // Configuración de Supabase
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY;
+// Usar SERVICE_ROLE_KEY para operaciones del backend (bypasea RLS)
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 
 console.log('=== CONFIGURACIÓN SUPABASE ===');
 console.log('URL:', supabaseUrl);
 console.log('Key presente:', !!supabaseKey);
+console.log('Usando SERVICE_ROLE_KEY:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
 console.log('Key (primeros 20 chars):', supabaseKey?.substring(0, 20) + '...');
 
 if (!supabaseUrl || !supabaseKey) {
