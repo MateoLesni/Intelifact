@@ -35,6 +35,22 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 } // 5MB límite
 });
 
+// Función para sanitizar nombres de archivo de forma segura
+// Elimina caracteres inválidos y normaliza el nombre
+const sanitizeFilename = (filename) => {
+  if (!filename) return 'imagen';
+
+  return filename
+    .normalize('NFD') // Normalizar Unicode
+    .replace(/[\u0300-\u036f]/g, '') // Eliminar tildes/acentos
+    .replace(/\s+/g, '_') // Espacios → guion bajo
+    .replace(/[^\w\s.-]/g, '') // Solo alfanuméricos, espacios, puntos, guiones
+    .replace(/_{2,}/g, '_') // Múltiples guiones bajos → uno solo
+    .replace(/^[._-]+/, '') // Eliminar puntos/guiones al inicio
+    .replace(/[._-]+$/, '') // Eliminar puntos/guiones al final
+    .substring(0, 200); // Limitar longitud
+};
+
 // ============ AUTENTICACIÓN ============
 
 // Login
@@ -258,14 +274,6 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
 
       throw new Error(errorMsg);
     }
-
-    // Función para sanitizar nombres de archivo
-    const sanitizeFilename = (filename) => {
-      return filename
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '') // Eliminar tildes
-        .replace(/[^a-zA-Z0-9._-]/g, '_'); // Reemplazar caracteres especiales con _
-    };
 
     // Subir imágenes a Supabase Storage
     const imagenesPromises = imagenes.map(async (imagen) => {
@@ -508,65 +516,128 @@ app.post('/api/facturas/:id/mr', async (req, res) => {
     if (error) throw error;
 
     // Renombrar imágenes con formato: FC_nro_factura_OC_nro_oc_MR_mr_numero_local_proveedor
+    // IMPORTANTE: Este proceso es transaccional - si falla, mantiene el archivo original
     const imagenes = facturaAnterior.factura_imagenes || [];
+
+    console.log(`\n========== INICIANDO RENOMBRADO DE ${imagenes.length} IMÁGENES ==========`);
+
     for (let i = 0; i < imagenes.length; i++) {
       const img = imagenes[i];
       const oldFileName = img.imagen_url.split('/').pop();
       const extension = oldFileName.split('.').pop();
 
-      // Limpiar nombres (remover espacios y caracteres especiales, permitir solo alfanuméricos)
-      const localLimpio = (facturaAnterior.local || '').replace(/[^a-zA-Z0-9]/g, '');
-      const proveedorLimpio = (facturaAnterior.proveedor || '').replace(/[^a-zA-Z0-9]/g, '');
-      const mrLimpio = (mr_numero || '').replace(/[^a-zA-Z0-9]/g, '');
-      const nroFacturaLimpio = (facturaAnterior.nro_factura || '').replace(/[^a-zA-Z0-9]/g, '');
-      const nroOcLimpio = (facturaAnterior.nro_oc || '').replace(/[^a-zA-Z0-9]/g, '');
+      console.log(`\n--- Procesando imagen ${i + 1}/${imagenes.length} ---`);
+      console.log('Archivo original:', oldFileName);
+      console.log('URL original:', img.imagen_url);
 
-      // Formato: FC_88238329_OC_2223_MR_1994849_LocalCentro_Udine.jpeg
-      const newFileName = `FC_${nroFacturaLimpio}_OC_${nroOcLimpio}_MR_${mrLimpio}_${localLimpio}_${proveedorLimpio}${i > 0 ? `_${i + 1}` : ''}.${extension}`;
+      try {
+        // Limpiar nombres (remover espacios y caracteres especiales, permitir solo alfanuméricos)
+        const localLimpio = sanitizeFilename(facturaAnterior.local || 'NoLocal');
+        const proveedorLimpio = sanitizeFilename(facturaAnterior.proveedor || 'NoProveedor');
+        const mrLimpio = sanitizeFilename(mr_numero || 'NoMR');
+        const nroFacturaLimpio = sanitizeFilename(facturaAnterior.nro_factura || 'NoFactura');
+        const nroOcLimpio = sanitizeFilename(facturaAnterior.nro_oc || 'NoOC');
 
-      // Mover/copiar archivo con nuevo nombre
-      const { data: fileData, error: downloadError } = await supabase
-        .storage
-        .from('facturas')
-        .download(oldFileName);
+        // Formato: FC_88238329_OC_2223_MR_1994849_LocalCentro_Udine.jpeg
+        const newFileName = `FC_${nroFacturaLimpio}_OC_${nroOcLimpio}_MR_${mrLimpio}_${localLimpio}_${proveedorLimpio}${i > 0 ? `_${i + 1}` : ''}.${extension}`;
 
-      if (downloadError) {
-        console.error('Error al descargar archivo:', downloadError);
-        continue;
+        console.log('Nuevo nombre:', newFileName);
+
+        // PASO 1: Descargar archivo original
+        console.log('PASO 1: Descargando archivo original...');
+        const { data: fileData, error: downloadError } = await supabase
+          .storage
+          .from('facturas')
+          .download(oldFileName);
+
+        if (downloadError) {
+          console.error('❌ ERROR al descargar:', downloadError);
+          console.error('   Manteniendo archivo original y URL sin cambios');
+          // NO hacemos continue, seguimos con la siguiente imagen
+          // pero NO actualizamos la DB (transacción segura)
+          continue;
+        }
+
+        console.log('✓ Archivo descargado exitosamente');
+
+        // PASO 2: Subir con nuevo nombre
+        console.log('PASO 2: Subiendo archivo con nuevo nombre...');
+        const { error: uploadError } = await supabase
+          .storage
+          .from('facturas')
+          .upload(newFileName, fileData, {
+            contentType: `image/${extension}`,
+            upsert: true
+          });
+
+        if (uploadError) {
+          console.error('❌ ERROR al subir archivo renombrado:', uploadError);
+          console.error('   Manteniendo archivo original y URL sin cambios');
+          // NO actualizamos la DB (transacción segura)
+          continue;
+        }
+
+        console.log('✓ Archivo renombrado subido exitosamente');
+
+        // PASO 3: Obtener nueva URL pública
+        console.log('PASO 3: Obteniendo nueva URL pública...');
+        const { data: urlData } = supabase
+          .storage
+          .from('facturas')
+          .getPublicUrl(newFileName);
+
+        if (!urlData || !urlData.publicUrl) {
+          console.error('❌ ERROR: No se pudo obtener URL pública');
+          console.error('   Eliminando archivo renombrado y manteniendo original');
+          // Limpiar: eliminar el archivo nuevo que acabamos de subir
+          await supabase.storage.from('facturas').remove([newFileName]);
+          continue;
+        }
+
+        console.log('✓ URL pública obtenida:', urlData.publicUrl);
+
+        // PASO 4: Actualizar URL en la base de datos
+        console.log('PASO 4: Actualizando URL en la base de datos...');
+        const { error: updateError } = await supabase
+          .from('factura_imagenes')
+          .update({ imagen_url: urlData.publicUrl })
+          .eq('id', img.id);
+
+        if (updateError) {
+          console.error('❌ ERROR al actualizar DB:', updateError);
+          console.error('   Eliminando archivo renombrado y manteniendo original');
+          // Limpiar: eliminar el archivo nuevo
+          await supabase.storage.from('facturas').remove([newFileName]);
+          continue;
+        }
+
+        console.log('✓ URL actualizada en DB exitosamente');
+
+        // PASO 5: SOLO AHORA eliminamos el archivo antiguo (commit de la transacción)
+        console.log('PASO 5: Eliminando archivo original...');
+        const { error: removeError } = await supabase
+          .storage
+          .from('facturas')
+          .remove([oldFileName]);
+
+        if (removeError) {
+          console.warn('⚠ ADVERTENCIA: No se pudo eliminar archivo original:', removeError);
+          console.warn('   El archivo renombrado YA está en uso, pero el original quedó huérfano');
+          // No es crítico - el archivo nuevo ya está funcionando
+        } else {
+          console.log('✓ Archivo original eliminado');
+        }
+
+        console.log(`✅ Imagen ${i + 1} renombrada exitosamente`);
+
+      } catch (error) {
+        console.error(`❌ ERROR INESPERADO al procesar imagen ${i + 1}:`, error);
+        console.error('   Manteniendo archivo y URL originales');
+        // La transacción falla de forma segura - no se pierden datos
       }
-
-      // Subir con nuevo nombre
-      const { error: uploadError } = await supabase
-        .storage
-        .from('facturas')
-        .upload(newFileName, fileData, {
-          contentType: `image/${extension}`,
-          upsert: true
-        });
-
-      if (uploadError) {
-        console.error('Error al subir archivo renombrado:', uploadError);
-        continue;
-      }
-
-      // Eliminar archivo antiguo
-      await supabase
-        .storage
-        .from('facturas')
-        .remove([oldFileName]);
-
-      // Obtener nueva URL pública
-      const { data: urlData } = supabase
-        .storage
-        .from('facturas')
-        .getPublicUrl(newFileName);
-
-      // Actualizar URL en la base de datos
-      await supabase
-        .from('factura_imagenes')
-        .update({ imagen_url: urlData.publicUrl })
-        .eq('id', img.id);
     }
+
+    console.log(`\n========== RENOMBRADO COMPLETADO ==========\n`);
 
     // Registrar en auditoría
     console.log('Registrando generación de MR en auditoría...');
