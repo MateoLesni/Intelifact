@@ -15,6 +15,8 @@ function ProveedoresDashboard({ user }) {
   const [filtroNombreArchivo, setFiltroNombreArchivo] = useState('');
   const [zoomLevel, setZoomLevel] = useState(1);
   const [imagenesRotas, setImagenesRotas] = useState(new Set());
+  // Cache buster estático por sesión para evitar problemas de caché
+  const [cacheBuster] = useState(() => Date.now());
 
   useEffect(() => {
     loadFacturas();
@@ -116,8 +118,14 @@ function ProveedoresDashboard({ user }) {
       // Agregar TODAS las imágenes (incluyendo las rotas)
       if (factura.factura_imagenes && factura.factura_imagenes.length > 0) {
         factura.factura_imagenes.forEach(img => {
+          // Agregar cache-busting parameter para evitar inconsistencias de caché
+          const urlBase = img.imagen_url;
+          const separator = urlBase.includes('?') ? '&' : '?';
+          const urlConCacheBust = `${urlBase}${separator}v=${cacheBuster}`;
+
           carpetas[categoria][fechaMR].push({
-            url: img.imagen_url,
+            url: urlConCacheBust,
+            urlOriginal: urlBase, // Guardar original para debug
             nombre: img.imagen_url.split('/').pop(),
             factura: factura
           });
