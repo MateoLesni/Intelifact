@@ -526,6 +526,13 @@ app.post('/api/facturas/:id/mr', async (req, res) => {
       const oldFileName = img.imagen_url.split('/').pop();
       const extension = oldFileName.split('.').pop();
 
+      // ======= VALIDACIÓN 1: IDEMPOTENCIA - Detectar archivos ya renombrados =======
+      if (oldFileName.startsWith('FC_')) {
+        console.log(`⚠️ Imagen ${i + 1} ya está renombrada (${oldFileName}), saltando...`);
+        continue;
+      }
+      // =============================================================================
+
       console.log(`\n--- Procesando imagen ${i + 1}/${imagenes.length} ---`);
       console.log('Archivo original:', oldFileName);
       console.log('URL original:', img.imagen_url);
@@ -540,6 +547,13 @@ app.post('/api/facturas/:id/mr', async (req, res) => {
 
         // Formato: FC_88238329_OC_2223_MR_1994849_LocalCentro_Udine.jpeg
         const newFileName = `FC_${nroFacturaLimpio}_OC_${nroOcLimpio}_MR_${mrLimpio}_${localLimpio}_${proveedorLimpio}${i > 0 ? `_${i + 1}` : ''}.${extension}`;
+
+        // ======= VALIDACIÓN 2: Verificar que los nombres sean diferentes =======
+        if (oldFileName === newFileName) {
+          console.log(`⚠️ Imagen ${i + 1} tiene el mismo nombre (${oldFileName}), saltando...`);
+          continue;
+        }
+        // =======================================================================
 
         console.log('Nuevo nombre:', newFileName);
 
@@ -614,19 +628,25 @@ app.post('/api/facturas/:id/mr', async (req, res) => {
         console.log('✓ URL actualizada en DB exitosamente');
 
         // PASO 5: SOLO AHORA eliminamos el archivo antiguo (commit de la transacción)
+        // ======= VALIDACIÓN 3: Triple verificación antes de eliminar =======
         console.log('PASO 5: Eliminando archivo original...');
-        const { error: removeError } = await supabase
-          .storage
-          .from('facturas')
-          .remove([oldFileName]);
+        if (oldFileName !== newFileName) {
+          const { error: removeError } = await supabase
+            .storage
+            .from('facturas')
+            .remove([oldFileName]);
 
-        if (removeError) {
-          console.warn('⚠ ADVERTENCIA: No se pudo eliminar archivo original:', removeError);
-          console.warn('   El archivo renombrado YA está en uso, pero el original quedó huérfano');
-          // No es crítico - el archivo nuevo ya está funcionando
+          if (removeError) {
+            console.warn('⚠ ADVERTENCIA: No se pudo eliminar archivo original:', removeError);
+            console.warn('   El archivo renombrado YA está en uso, pero el original quedó huérfano');
+            // No es crítico - el archivo nuevo ya está funcionando
+          } else {
+            console.log('✓ Archivo original eliminado');
+          }
         } else {
-          console.log('✓ Archivo original eliminado');
+          console.log('⚠️ Los nombres son iguales, no se elimina nada (protección)');
         }
+        // ==================================================================
 
         console.log(`✅ Imagen ${i + 1} renombrada exitosamente`);
 

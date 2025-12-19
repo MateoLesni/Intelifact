@@ -36,6 +36,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
   });
   const [filtroMR, setFiltroMR] = useState('todos'); // 'todos', 'con_mr', 'sin_mr'
   const [filtroFechaMR, setFiltroFechaMR] = useState(''); // Filtro por fecha de MR (YYYY-MM-DD)
+  const [generatingMR, setGeneratingMR] = useState(false); // Estado para prevenir doble-click
   const [localesSeleccionados, setLocalesSeleccionados] = useState(() => {
     // Cargar filtro de locales desde localStorage
     const saved = localStorage.getItem(`filtroLocales_${user.id}`);
@@ -271,10 +272,17 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
   };
 
   const handleGenerateMR = async () => {
+    // Prevenir ejecución si ya está procesando
+    if (generatingMR) {
+      return;
+    }
+
     if (!mrNumero.trim()) {
       alert('Debe ingresar un número de MR');
       return;
     }
+
+    setGeneratingMR(true);
 
     try {
       const response = await fetch(`${API_URL}/facturas/${showMRModal}/mr`, {
@@ -294,6 +302,8 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
       }
     } catch (error) {
       alert('Error al generar MR: ' + error.message);
+    } finally {
+      setGeneratingMR(false);
     }
   };
 
@@ -1329,8 +1339,17 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                 autoFocus
               />
             </div>
-            <button onClick={handleGenerateMR} className="btn btn-success" style={{ width: '100%' }}>
-              Confirmar
+            <button
+              onClick={handleGenerateMR}
+              disabled={generatingMR}
+              className="btn btn-success"
+              style={{
+                width: '100%',
+                opacity: generatingMR ? 0.6 : 1,
+                cursor: generatingMR ? 'not-allowed' : 'pointer'
+              }}
+            >
+              {generatingMR ? 'Generando MR...' : 'Confirmar'}
             </button>
           </div>
         </div>
