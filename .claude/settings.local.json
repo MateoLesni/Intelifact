@@ -7,7 +7,15 @@
       "Bash(git push:*)",
       "Bash(findstr:*)",
       "Bash(node -e:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(cmd /c npm install @google-cloud/storage)",
+      "Bash(where npm)",
+      "Bash(node --version:*)",
+      "Bash(curl:*)",
+      "Bash(curl.exe:*)",
+      "Bash(git revert:*)",
+      "Bash(git stash:*)",
+      "Bash(git rm:*)"
     ],
     "deny": [],
     "ask": []
