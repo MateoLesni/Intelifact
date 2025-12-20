@@ -3,6 +3,9 @@ const express = require('express');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 const multer = require('multer');
+const { Storage } = require('@google-cloud/storage');
+const sharp = require('sharp');
+const path = require('path');
 
 const app = express();
 
@@ -23,6 +26,43 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+// ======= CONFIGURACIÓN GOOGLE CLOUD STORAGE =======
+let gcsStorage;
+let gcsBucket;
+
+try {
+  // En local: usa el archivo JSON
+  // En Vercel: usa variables de entorno
+  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    // Desarrollo local
+    gcsStorage = new Storage({
+      keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
+      projectId: process.env.GCS_PROJECT_ID
+    });
+  } else {
+    // Producción (Vercel)
+    gcsStorage = new Storage({
+      projectId: process.env.GCS_PROJECT_ID,
+      credentials: {
+        client_email: process.env.GCS_CLIENT_EMAIL,
+        private_key: process.env.GCS_PRIVATE_KEY?.replace(/\\n/g, '\n')
+      }
+    });
+  }
+
+  gcsBucket = gcsStorage.bucket(process.env.GCS_BUCKET_NAME);
+
+  console.log('=== CONFIGURACIÓN GCS ===');
+  console.log('Project ID:', process.env.GCS_PROJECT_ID);
+  console.log('Bucket:', process.env.GCS_BUCKET_NAME);
+  console.log('Cliente inicializado: ✓');
+  console.log('========================');
+} catch (error) {
+  console.error('❌ ERROR al inicializar GCS:', error.message);
+  process.exit(1);
+}
+// ==================================================
 
 // Middleware
 app.use(cors());
@@ -49,6 +89,47 @@ const sanitizeFilename = (filename) => {
     .replace(/^[._-]+/, '') // Eliminar puntos/guiones al inicio
     .replace(/[._-]+$/, '') // Eliminar puntos/guiones al final
     .substring(0, 200); // Limitar longitud
+};
+
+// Función para comprimir imágenes antes de subir
+// Optimiza el tamaño del archivo sin sacrificar mucha calidad
+const compressImage = async (buffer, mimetype) => {
+  try {
+    // Si es PDF, retornar sin modificar
+    if (mimetype === 'application/pdf') {
+      return buffer;
+    }
+
+    // Si no es imagen, retornar sin modificar
+    if (!mimetype.startsWith('image/')) {
+      return buffer;
+    }
+
+    // Comprimir imagen con sharp
+    // NOTA DE ESCALABILIDAD: Sharp es extremadamente eficiente y usa streaming
+    // Procesa millones de imágenes sin problemas de memoria
+    const compressed = await sharp(buffer)
+      .resize(2400, 2400, { // Max 2400x2400px, mantiene aspect ratio
+        fit: 'inside',
+        withoutEnlargement: true // No agrandar imágenes pequeñas
+      })
+      .jpeg({
+        quality: 85, // 85% calidad - buen balance entre tamaño y calidad
+        mozjpeg: true // Usar MozJPEG para mejor compresión
+      })
+      .toBuffer();
+
+    const originalSize = buffer.length;
+    const compressedSize = compressed.length;
+    const savings = ((1 - compressedSize / originalSize) * 100).toFixed(1);
+
+    console.log(`📦 Compresión: ${(originalSize / 1024).toFixed(0)} KB → ${(compressedSize / 1024).toFixed(0)} KB (ahorró ${savings}%)`);
+
+    return compressed;
+  } catch (error) {
+    console.error('⚠️ Error al comprimir imagen, usando original:', error.message);
+    return buffer; // Si falla, usar original (fail-safe)
+  }
 };
 
 // ============ AUTENTICACIÓN ============
@@ -111,7 +192,7 @@ app.get('/api/facturas', async (req, res) => {
         .from('facturas')
         .select(`
           *,
-          factura_imagenes(imagen_url),
+          factura_imagenes(imagen_url, renombre, nombre_fisico),
           usuarios(nombre),
           created_at,
           fecha_mr,
@@ -259,7 +340,6 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
       console.error('Datos enviados:', JSON.stringify(facturaData, null, 2));
       console.error('========================================');
 
-      // Proporcionar mensajes más específicos según el tipo de error
       let errorMsg = 'Error al crear la factura';
 
       if (facturaError.message?.includes('pattern') || facturaError.message?.includes('formato')) {
@@ -275,83 +355,84 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
       throw new Error(errorMsg);
     }
 
-    // Subir imágenes a Supabase Storage
-    const imagenesPromises = imagenes.map(async (imagen) => {
-      const sanitizedName = sanitizeFilename(imagen.originalname);
-      const fileName = `${factura.id}-${Date.now()}-${sanitizedName}`;
+    console.log(`\n🚀 SUBIENDO ${imagenes.length} IMAGEN(ES) A GOOGLE CLOUD STORAGE`);
+    console.log('================================================');
 
-      const { data: uploadData, error: uploadError } = await supabase
-        .storage
-        .from('facturas')
-        .upload(fileName, imagen.buffer, {
-          contentType: imagen.mimetype
+    // ======= SUBIR IMÁGENES A GOOGLE CLOUD STORAGE =======
+    const imagenesPromises = imagenes.map(async (imagen, index) => {
+      const sanitizedName = sanitizeFilename(imagen.originalname);
+      const timestamp = Date.now() + index; // Evitar colisiones si se suben simultáneamente
+      const nombreFisico = `${factura.id}-${timestamp}-${sanitizedName}`;
+
+      console.log(`\n--- Imagen ${index + 1}/${imagenes.length} ---`);
+      console.log(`📁 Original: ${imagen.originalname}`);
+      console.log(`💾 Nombre físico: ${nombreFisico}`);
+      console.log(`📏 Tamaño original: ${(imagen.size / 1024).toFixed(0)} KB`);
+
+      try {
+        // Comprimir imagen antes de subir
+        const compressedBuffer = await compressImage(imagen.buffer, imagen.mimetype);
+
+        // Crear archivo en GCS
+        const file = gcsBucket.file(nombreFisico);
+
+        // Subir archivo a GCS
+        // NOTA DE ESCALABILIDAD: GCS maneja millones de uploads concurrentes
+        // No hay límite práctico en cantidad de archivos o tamaño del bucket
+        await file.save(compressedBuffer, {
+          metadata: {
+            contentType: imagen.mimetype,
+            metadata: {
+              originalName: imagen.originalname,
+              facturaId: factura.id.toString(),
+              uploadedAt: new Date().toISOString()
+            }
+          }
         });
 
-      if (uploadError) {
-        console.error('Error uploading to Supabase Storage:', uploadError);
-        // Proporcionar mensaje específico según el tipo de error
-        let errorMsg = 'Error al subir imagen';
-        if (uploadError.message?.includes('Forbidden') || uploadError.statusCode === '403') {
-          errorMsg = 'Sin permisos para subir archivos. Contacte al administrador.';
-        } else if (uploadError.message?.includes('payload')) {
-          errorMsg = 'El archivo es demasiado grande para ser procesado.';
-        } else if (uploadError.message) {
-          errorMsg = `Error al subir ${imagen.originalname}: ${uploadError.message}`;
-        }
-        throw new Error(errorMsg);
-      }
+        // Obtener URL pública
+        // El bucket está configurado como público a nivel de bucket (Uniform Bucket-Level Access)
+        const publicUrl = `https://storage.googleapis.com/${process.env.GCS_BUCKET_NAME}/${nombreFisico}`;
 
-      // Verificar que el upload fue exitoso
-      if (!uploadData || !uploadData.path) {
-        throw new Error(`No se pudo confirmar la subida de ${imagen.originalname}`);
-      }
+        console.log(`✅ URL pública: ${publicUrl}`);
 
-      // Obtener URL pública
-      const { data: urlData } = supabase
-        .storage
-        .from('facturas')
-        .getPublicUrl(fileName);
+        // ======= INSERTAR EN BASE DE DATOS CON NUEVAS COLUMNAS =======
+        const imagenData = {
+          factura_id: factura.id,
+          imagen_url: publicUrl,
+          nombre_fisico: nombreFisico,
+          renombre: sanitizedName, // Por defecto, el nombre original
+          content_type: imagen.mimetype,
+          file_size_bytes: compressedBuffer.length
+        };
 
-      if (!urlData || !urlData.publicUrl) {
-        throw new Error(`No se pudo obtener URL pública para ${imagen.originalname}`);
-      }
+        console.log(`💾 Guardando referencia en DB...`);
 
-      console.log('URL generada:', urlData.publicUrl);
-      console.log('Nombre de archivo original:', imagen.originalname);
-      console.log('Nombre de archivo sanitizado:', sanitizedName);
-      console.log('Nombre de archivo final:', fileName);
+        const { error: insertError } = await supabase
+          .from('factura_imagenes')
+          .insert(imagenData);
 
-      // Insertar referencia en la tabla
-      const imagenData = {
-        factura_id: factura.id,
-        imagen_url: urlData.publicUrl
-      };
-
-      console.log('Insertando referencia de imagen:', imagenData);
-
-      const { error: insertError } = await supabase
-        .from('factura_imagenes')
-        .insert(imagenData);
-
-      if (insertError) {
-        console.error('Error al insertar referencia de imagen:', insertError);
-        console.error('Datos de imagen:', imagenData);
-
-        let errorMsg = `Error al guardar referencia de ${imagen.originalname}`;
-
-        if (insertError.message?.includes('pattern') || insertError.message?.includes('formato')) {
-          errorMsg = `La URL de la imagen no tiene el formato esperado: ${urlData.publicUrl}`;
-        } else if (insertError.message) {
-          errorMsg = `${errorMsg}: ${insertError.message}`;
+        if (insertError) {
+          console.error('❌ Error al insertar referencia en DB:', insertError);
+          // Eliminar archivo de GCS si falla la DB (cleanup)
+          await file.delete().catch(err => console.error('Error al eliminar archivo:', err));
+          throw new Error(`Error al guardar referencia de ${imagen.originalname}: ${insertError.message}`);
         }
 
-        throw new Error(errorMsg);
-      }
+        console.log(`✅ Imagen ${index + 1} subida y registrada exitosamente`);
 
-      return urlData.publicUrl;
+        return publicUrl;
+      } catch (error) {
+        console.error(`❌ Error procesando ${imagen.originalname}:`, error.message);
+        throw error;
+      }
     });
 
     await Promise.all(imagenesPromises);
+
+    console.log('\n================================================');
+    console.log(`✅ TODAS LAS IMÁGENES SUBIDAS EXITOSAMENTE`);
+    console.log('================================================\n');
 
     res.json(factura);
   } catch (error) {
@@ -473,213 +554,145 @@ app.delete('/api/facturas/:id', async (req, res) => {
   }
 });
 
-// Generar MR
+// Generar MR - NUEVA VERSIÓN CON NOMBRES VIRTUALES
 app.post('/api/facturas/:id/mr', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { mr_numero, usuario_id } = req.body;
+  const { id } = req.params;
+  const { mr_numero, usuario_id } = req.body;
 
-    // Obtener datos completos de la factura incluyendo imágenes
-    const { data: facturaAnterior } = await supabase
+  try {
+    console.log(`\n🏷️  GENERANDO MR ${mr_numero} PARA FACTURA ${id}`);
+    console.log('================================================');
+
+    // Validar que no exista otra factura con este número de MR
+    const { data: existingMR, error: checkError } = await supabase
       .from('facturas')
-      .select('*, factura_imagenes(*)')
+      .select('id, nro_factura')
+      .eq('mr_numero', mr_numero)
+      .neq('id', id)
+      .maybeSingle();
+
+    if (checkError) {
+      console.error('❌ Error al verificar MR duplicada:', checkError);
+      throw new Error('Error al verificar número de MR');
+    }
+
+    if (existingMR) {
+      console.log(`⚠️  MR ${mr_numero} ya existe en factura ${existingMR.nro_factura}`);
+      return res.status(400).json({
+        error: `El número de MR ${mr_numero} ya está asignado a la factura ${existingMR.nro_factura}`
+      });
+    }
+
+    // Obtener datos de la factura
+    const { data: factura, error: facturaError } = await supabase
+      .from('facturas')
+      .select('*')
       .eq('id', id)
       .single();
 
-    // CRÍTICO PARA PROVEEDORES: La fecha_mr NUNCA debe cambiar una vez establecida
-    // Esto garantiza que las facturas permanezcan en la misma carpeta de fecha
-    // y los conteos no cambien día a día
+    if (facturaError || !factura) {
+      throw new Error('Factura no encontrada');
+    }
 
+    console.log(`📄 Factura: ${factura.nro_factura}`);
+    console.log(`🏪 Local: ${factura.local}`);
+    console.log(`🏢 Proveedor: ${factura.proveedor}`);
+    console.log(`📋 OC: ${factura.nro_oc}`);
+
+    // CRÍTICO: La fecha_mr NUNCA debe cambiar una vez establecida
     const ahora = new Date();
-    const timestampCompleto = ahora.toISOString(); // Para fecha_mr_timestamp (con hora)
-    const soloFecha = ahora.toISOString().split('T')[0]; // Para fecha_mr (sin hora)
+    const timestampCompleto = ahora.toISOString();
+    const soloFecha = ahora.toISOString().split('T')[0];
 
-    // Si ya tiene fecha_mr (re-generación de MR), mantener las fechas originales
-    // Si es primera vez, establecer ambas fechas
-    const fechaMR_date = facturaAnterior.fecha_mr || soloFecha;
-    const fechaMR_timestamp = facturaAnterior.fecha_mr_timestamp || timestampCompleto;
+    const fechaMR_date = factura.fecha_mr || soloFecha;
+    const fechaMR_timestamp = factura.fecha_mr_timestamp || timestampCompleto;
 
-    // Actualizar factura con MR y ambas fechas
-    const { data: factura, error } = await supabase
+    // Actualizar factura con MR
+    const { error: updateError } = await supabase
       .from('facturas')
       .update({
         mr_numero,
         mr_estado: true,
-        fecha_mr: fechaMR_date, // DATE (YYYY-MM-DD) - Para Proveedores, inmutable
-        fecha_mr_timestamp: fechaMR_timestamp, // TIMESTAMP - Para Pedidos (cálculo demoras), inmutable
+        fecha_mr: fechaMR_date,
+        fecha_mr_timestamp: fechaMR_timestamp,
         updated_at: new Date().toISOString()
       })
-      .eq('id', id)
+      .eq('id', id);
+
+    if (updateError) {
+      console.error('❌ Error al actualizar factura:', updateError);
+      throw new Error('Error al actualizar la factura con el MR');
+    }
+
+    console.log('✅ Factura actualizada con MR');
+
+    // ======= GENERAR NOMBRES VIRTUALES PARA LAS IMÁGENES =======
+    // IMPORTANTE: Solo actualizamos la columna 'renombre' en la DB
+    // NO tocamos archivos físicos - quedan inmutables en GCS
+    const { data: imagenes, error: imagenesError } = await supabase
+      .from('factura_imagenes')
       .select('*')
-      .single();
+      .eq('factura_id', id);
 
-    if (error) throw error;
+    if (imagenesError) {
+      console.error('❌ Error al obtener imágenes:', imagenesError);
+      throw new Error('Error al obtener las imágenes de la factura');
+    }
 
-    // Renombrar imágenes con formato: FC_nro_factura_OC_nro_oc_MR_mr_numero_local_proveedor
-    // IMPORTANTE: Este proceso es transaccional - si falla, mantiene el archivo original
-    const imagenes = facturaAnterior.factura_imagenes || [];
+    console.log(`\n📸 Actualizando nombres virtuales de ${imagenes.length} imagen(es)...`);
 
-    console.log(`\n========== INICIANDO RENOMBRADO DE ${imagenes.length} IMÁGENES ==========`);
+    // Limpiar datos para el nombre virtual
+    const localLimpio = sanitizeFilename(factura.local || 'NoLocal');
+    const proveedorLimpio = sanitizeFilename(factura.proveedor || 'NoProveedor');
+    const mrLimpio = sanitizeFilename(mr_numero || 'NoMR');
+    const nroFacturaLimpio = sanitizeFilename(factura.nro_factura || 'NoFactura');
+    const nroOcLimpio = sanitizeFilename(factura.nro_oc || 'NoOC');
 
+    // Actualizar el campo 'renombre' en cada imagen (NO tocar archivos físicos)
     for (let i = 0; i < imagenes.length; i++) {
       const img = imagenes[i];
-      const oldFileName = img.imagen_url.split('/').pop();
-      const extension = oldFileName.split('.').pop();
+      const extension = path.extname(img.nombre_fisico) || '.jpg';
 
-      // ======= VALIDACIÓN 1: IDEMPOTENCIA - Detectar archivos ya renombrados =======
-      if (oldFileName.startsWith('FC_')) {
-        console.log(`⚠️ Imagen ${i + 1} ya está renombrada (${oldFileName}), saltando...`);
-        continue;
-      }
-      // =============================================================================
+      // Generar nombre virtual usando el formato FC_
+      const nombreVirtual = `FC_${nroFacturaLimpio}_OC_${nroOcLimpio}_MR_${mrLimpio}_${localLimpio}_${proveedorLimpio}${i > 0 ? `_${i + 1}` : ''}${extension}`;
 
-      console.log(`\n--- Procesando imagen ${i + 1}/${imagenes.length} ---`);
-      console.log('Archivo original:', oldFileName);
-      console.log('URL original:', img.imagen_url);
+      console.log(`${i + 1}. "${img.nombre_fisico}" → "${nombreVirtual}"`);
 
-      try {
-        // Limpiar nombres (remover espacios y caracteres especiales, permitir solo alfanuméricos)
-        const localLimpio = sanitizeFilename(facturaAnterior.local || 'NoLocal');
-        const proveedorLimpio = sanitizeFilename(facturaAnterior.proveedor || 'NoProveedor');
-        const mrLimpio = sanitizeFilename(mr_numero || 'NoMR');
-        const nroFacturaLimpio = sanitizeFilename(facturaAnterior.nro_factura || 'NoFactura');
-        const nroOcLimpio = sanitizeFilename(facturaAnterior.nro_oc || 'NoOC');
+      // SOLO actualizar la columna 'renombre' en la DB
+      // El archivo físico permanece con su nombre original
+      const { error: updateImgError } = await supabase
+        .from('factura_imagenes')
+        .update({
+          renombre: nombreVirtual,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', img.id);
 
-        // Formato: FC_88238329_OC_2223_MR_1994849_LocalCentro_Udine.jpeg
-        const newFileName = `FC_${nroFacturaLimpio}_OC_${nroOcLimpio}_MR_${mrLimpio}_${localLimpio}_${proveedorLimpio}${i > 0 ? `_${i + 1}` : ''}.${extension}`;
-
-        // ======= VALIDACIÓN 2: Verificar que los nombres sean diferentes =======
-        if (oldFileName === newFileName) {
-          console.log(`⚠️ Imagen ${i + 1} tiene el mismo nombre (${oldFileName}), saltando...`);
-          continue;
-        }
-        // =======================================================================
-
-        console.log('Nuevo nombre:', newFileName);
-
-        // PASO 1: Descargar archivo original
-        console.log('PASO 1: Descargando archivo original...');
-        const { data: fileData, error: downloadError } = await supabase
-          .storage
-          .from('facturas')
-          .download(oldFileName);
-
-        if (downloadError) {
-          console.error('❌ ERROR al descargar:', downloadError);
-          console.error('   Manteniendo archivo original y URL sin cambios');
-          // NO hacemos continue, seguimos con la siguiente imagen
-          // pero NO actualizamos la DB (transacción segura)
-          continue;
-        }
-
-        console.log('✓ Archivo descargado exitosamente');
-
-        // PASO 2: Subir con nuevo nombre
-        console.log('PASO 2: Subiendo archivo con nuevo nombre...');
-        const { error: uploadError } = await supabase
-          .storage
-          .from('facturas')
-          .upload(newFileName, fileData, {
-            contentType: `image/${extension}`,
-            upsert: true
-          });
-
-        if (uploadError) {
-          console.error('❌ ERROR al subir archivo renombrado:', uploadError);
-          console.error('   Manteniendo archivo original y URL sin cambios');
-          // NO actualizamos la DB (transacción segura)
-          continue;
-        }
-
-        console.log('✓ Archivo renombrado subido exitosamente');
-
-        // PASO 3: Obtener nueva URL pública
-        console.log('PASO 3: Obteniendo nueva URL pública...');
-        const { data: urlData } = supabase
-          .storage
-          .from('facturas')
-          .getPublicUrl(newFileName);
-
-        if (!urlData || !urlData.publicUrl) {
-          console.error('❌ ERROR: No se pudo obtener URL pública');
-          console.error('   Eliminando archivo renombrado y manteniendo original');
-          // Limpiar: eliminar el archivo nuevo que acabamos de subir
-          await supabase.storage.from('facturas').remove([newFileName]);
-          continue;
-        }
-
-        console.log('✓ URL pública obtenida:', urlData.publicUrl);
-
-        // PASO 4: Actualizar URL en la base de datos
-        console.log('PASO 4: Actualizando URL en la base de datos...');
-        const { error: updateError } = await supabase
-          .from('factura_imagenes')
-          .update({ imagen_url: urlData.publicUrl })
-          .eq('id', img.id);
-
-        if (updateError) {
-          console.error('❌ ERROR al actualizar DB:', updateError);
-          console.error('   Eliminando archivo renombrado y manteniendo original');
-          // Limpiar: eliminar el archivo nuevo
-          await supabase.storage.from('facturas').remove([newFileName]);
-          continue;
-        }
-
-        console.log('✓ URL actualizada en DB exitosamente');
-
-        // PASO 5: SOLO AHORA eliminamos el archivo antiguo (commit de la transacción)
-        // ======= VALIDACIÓN 3: Triple verificación antes de eliminar =======
-        console.log('PASO 5: Eliminando archivo original...');
-        if (oldFileName !== newFileName) {
-          const { error: removeError } = await supabase
-            .storage
-            .from('facturas')
-            .remove([oldFileName]);
-
-          if (removeError) {
-            console.warn('⚠ ADVERTENCIA: No se pudo eliminar archivo original:', removeError);
-            console.warn('   El archivo renombrado YA está en uso, pero el original quedó huérfano');
-            // No es crítico - el archivo nuevo ya está funcionando
-          } else {
-            console.log('✓ Archivo original eliminado');
-          }
-        } else {
-          console.log('⚠️ Los nombres son iguales, no se elimina nada (protección)');
-        }
-        // ==================================================================
-
-        console.log(`✅ Imagen ${i + 1} renombrada exitosamente`);
-
-      } catch (error) {
-        console.error(`❌ ERROR INESPERADO al procesar imagen ${i + 1}:`, error);
-        console.error('   Manteniendo archivo y URL originales');
-        // La transacción falla de forma segura - no se pierden datos
+      if (updateImgError) {
+        console.error(`⚠️  Error al actualizar imagen ${i + 1}:`, updateImgError);
+        // No lanzar error, continuar con las demás
       }
     }
 
-    console.log(`\n========== RENOMBRADO COMPLETADO ==========\n`);
+    console.log('✅ Nombres virtuales actualizados');
 
     // Registrar en auditoría
-    console.log('Registrando generación de MR en auditoría...');
-    const { error: auditoriaError } = await supabase
+    await supabase
       .from('auditoria')
       .insert({
-        factura_id: parseInt(id),
+        factura_id: id,
         usuario_id: parseInt(usuario_id),
         accion: 'generacion_mr',
-        datos_anteriores: facturaAnterior,
-        datos_nuevos: factura
+        detalles: { mr_numero }
       });
 
-    if (auditoriaError) {
-      console.error('ERROR al guardar auditoría de generación MR:', auditoriaError);
-    } else {
-      console.log('✅ Auditoría de generación MR guardada correctamente');
-    }
+    console.log('✅ Auditoría registrada');
+    console.log('================================================');
+    console.log(`✅ MR ${mr_numero} GENERADA EXITOSAMENTE\n`);
 
-    res.json(factura);
+    res.json({ message: 'MR generada correctamente' });
   } catch (error) {
-    console.error('Error en generación de MR:', error);
+    console.error('❌ ERROR EN GENERACIÓN DE MR:', error);
     res.status(500).json({ error: error.message });
   }
 });

@@ -1450,7 +1450,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                       </p>
                       {!tieneError && (
                         <button
-                          onClick={() => descargarImagen(img.imagen_url, `factura_imagen_${index + 1}.jpg`)}
+                          onClick={() => descargarImagen(img.imagen_url, img.renombre || `factura_imagen_${index + 1}.jpg`)}
                           className="btn btn-primary"
                           style={{ width: '100%' }}
                         >

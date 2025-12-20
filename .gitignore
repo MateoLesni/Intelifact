@@ -29,3 +29,14 @@ yarn-error.log*
 
 # Vercel
 .vercel
+
+# Google Cloud credentials (NEVER commit these!)
+intelifact-d36d34e46780.json
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!jsconfig.json
+
+# CORS config (can be regenerated)
+cors.json

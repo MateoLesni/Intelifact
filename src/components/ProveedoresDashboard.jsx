@@ -118,7 +118,8 @@ function ProveedoresDashboard({ user }) {
         factura.factura_imagenes.forEach(img => {
           carpetas[categoria][fechaMR].push({
             url: img.imagen_url,
-            nombre: img.imagen_url.split('/').pop(),
+            // Usar renombre si existe, si no, extraer de la URL (fallback para imágenes viejas)
+            nombre: img.renombre || img.imagen_url.split('/').pop(),
             factura: factura
           });
         });
