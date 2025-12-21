@@ -36,6 +36,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
   });
   const [filtroMR, setFiltroMR] = useState('todos'); // 'todos', 'con_mr', 'sin_mr'
   const [filtroFechaMR, setFiltroFechaMR] = useState(''); // Filtro por fecha de MR (YYYY-MM-DD)
+  const [filtroFechaCarga, setFiltroFechaCarga] = useState(''); // Filtro por fecha de carga (YYYY-MM-DD)
   const [generatingMR, setGeneratingMR] = useState(false); // Estado para prevenir doble-click
   const [localesSeleccionados, setLocalesSeleccionados] = useState(() => {
     // Cargar filtro de locales desde localStorage
@@ -93,7 +94,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
   useEffect(() => {
     // Resetear a página 1 cuando cambien los filtros
     setPaginaActual(1);
-  }, [filtros, filtroMR, filtroFechaMR, localesSeleccionados, rangoFechas]);
+  }, [filtros, filtroMR, filtroFechaMR, filtroFechaCarga, localesSeleccionados, rangoFechas]);
 
   useEffect(() => {
     // Aplicar filtros
@@ -151,6 +152,16 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
       });
     }
 
+    // Filtro por fecha de carga (calendario)
+    if (filtroFechaCarga.trim()) {
+      filtered = filtered.filter(f => {
+        if (!f.created_at) return false;
+        // Comparar solo la fecha (YYYY-MM-DD)
+        const fechaCargaFactura = f.created_at.split('T')[0]; // Extraer solo YYYY-MM-DD
+        return fechaCargaFactura === filtroFechaCarga;
+      });
+    }
+
     // Filtros de columnas
     Object.keys(filtros).forEach(key => {
       if (filtros[key].trim()) {
@@ -171,7 +182,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
     });
 
     setFacturasFiltradas(filtered);
-  }, [filtros, filtroMR, filtroFechaMR, facturas, localesSeleccionados, rangoFechas, user.rol]);
+  }, [filtros, filtroMR, filtroFechaMR, filtroFechaCarga, facturas, localesSeleccionados, rangoFechas, user.rol]);
 
   const loadFacturas = async () => {
     try {
@@ -802,6 +813,41 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
             </div>
           )}
 
+          {filtroFechaCarga && (
+            <div style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#d1ecf1',
+              border: '1px solid #17a2b8',
+              borderRadius: '4px',
+              fontSize: '0.875rem',
+              color: '#0c5460',
+              fontWeight: '500',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}>
+              📅 Filtrado por Fecha de Carga: {(() => {
+                const [year, month, day] = filtroFechaCarga.split('-');
+                return `${day}/${month}/${year}`;
+              })()}
+              <button
+                onClick={() => setFiltroFechaCarga('')}
+                style={{
+                  background: '#0c5460',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '3px',
+                  padding: '2px 8px',
+                  fontSize: '0.75rem',
+                  cursor: 'pointer',
+                  fontWeight: '600'
+                }}
+              >
+                ✕ Quitar
+              </button>
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: '0.5rem', backgroundColor: '#ecf0f1', padding: '0.25rem', borderRadius: '6px' }}>
             <button
               onClick={() => setFiltroMR('todos')}
@@ -933,7 +979,38 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                   />
                 </th>
                 <th style={{ padding: '0.5rem' }}></th>
-                <th style={{ padding: '0.5rem' }}></th>
+                <th style={{ padding: '0.5rem' }}>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="date"
+                      value={filtroFechaCarga}
+                      onChange={(e) => setFiltroFechaCarga(e.target.value)}
+                      style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem' }}
+                    />
+                    {filtroFechaCarga && (
+                      <button
+                        onClick={() => setFiltroFechaCarga('')}
+                        style={{
+                          position: 'absolute',
+                          right: '5px',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: '#e74c3c',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '3px',
+                          padding: '2px 6px',
+                          fontSize: '0.75rem',
+                          cursor: 'pointer',
+                          fontWeight: 'bold'
+                        }}
+                        title="Limpiar filtro"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                </th>
                 <th style={{ padding: '0.5rem' }}></th>
                 <th style={{ padding: '0.5rem' }}>
                   <input
