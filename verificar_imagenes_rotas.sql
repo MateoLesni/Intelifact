@@ -5,8 +5,8 @@
 -- dan 404 porque fueron eliminadas de Supabase Storage
 -- =========================================================
 
--- QUERY 1: Listado completo de imágenes potencialmente rotas
--- Ordenado por fecha de factura y local
+-- QUERY 1: Imágenes que DAN 404 (no existen en storage)
+-- Solo muestra las que REALMENTE están rotas
 SELECT
     f.created_at::date as fecha_carga,
     f.local,
@@ -17,13 +17,9 @@ SELECT
     f.mr_estado,
     f.fecha_mr,
     fi.imagen_url,
-    fi.nombre_fisico,
-    fi.renombre,
+    SUBSTRING(fi.imagen_url FROM '/([^/]+)$') as nombre_archivo,
     f.id as factura_id,
     fi.id as imagen_id,
-    -- Extraer nombre del archivo de la URL
-    SUBSTRING(fi.imagen_url FROM '/([^/]+)$') as nombre_archivo,
-    -- Detectar si es imagen de Supabase Storage (vieja)
     CASE
         WHEN fi.imagen_url LIKE '%supabase.co/storage/%' THEN 'Supabase Storage'
         WHEN fi.imagen_url LIKE '%storage.googleapis.com/%' THEN 'Google Cloud Storage'
@@ -32,26 +28,39 @@ SELECT
 FROM facturas f
 JOIN factura_imagenes fi ON fi.factura_id = f.id
 WHERE
-    -- Solo imágenes de Supabase Storage (las que pueden dar 404)
     fi.imagen_url LIKE '%supabase.co/storage/%'
+    -- CRÍTICO: Verificar que el archivo NO existe en storage
+    AND NOT EXISTS (
+        SELECT 1
+        FROM storage.objects so
+        WHERE so.bucket_id = 'facturas'
+        AND fi.imagen_url LIKE '%' || so.name || '%'
+    )
 ORDER BY
     f.created_at DESC,
     f.local,
     f.nro_factura;
 
 -- =========================================================
--- QUERY 2: Resumen por local y fecha (para análisis rápido)
+-- QUERY 2: Resumen por local y fecha (SOLO imágenes rotas 404)
 -- =========================================================
 SELECT
     f.created_at::date as fecha,
     f.local,
-    COUNT(DISTINCT f.id) as total_facturas_afectadas,
-    COUNT(fi.id) as total_imagenes_supabase,
+    COUNT(DISTINCT f.id) as total_facturas_con_404,
+    COUNT(fi.id) as total_imagenes_404,
     STRING_AGG(DISTINCT f.nro_factura, ', ' ORDER BY f.nro_factura) as facturas_afectadas
 FROM facturas f
 JOIN factura_imagenes fi ON fi.factura_id = f.id
 WHERE
     fi.imagen_url LIKE '%supabase.co/storage/%'
+    -- CRÍTICO: Solo contar las que NO existen en storage
+    AND NOT EXISTS (
+        SELECT 1
+        FROM storage.objects so
+        WHERE so.bucket_id = 'facturas'
+        AND fi.imagen_url LIKE '%' || so.name || '%'
+    )
 GROUP BY
     f.created_at::date,
     f.local
@@ -60,17 +69,24 @@ ORDER BY
     f.local;
 
 -- =========================================================
--- QUERY 3: Resumen por mes (para ver tendencia)
+-- QUERY 3: Resumen por mes (SOLO imágenes rotas 404)
 -- =========================================================
 SELECT
     DATE_TRUNC('month', f.created_at) as mes,
-    COUNT(DISTINCT f.id) as facturas_afectadas,
-    COUNT(fi.id) as imagenes_en_supabase,
+    COUNT(DISTINCT f.id) as facturas_con_404,
+    COUNT(fi.id) as imagenes_404,
     COUNT(DISTINCT f.local) as locales_afectados
 FROM facturas f
 JOIN factura_imagenes fi ON fi.factura_id = f.id
 WHERE
     fi.imagen_url LIKE '%supabase.co/storage/%'
+    -- CRÍTICO: Solo contar las que NO existen en storage
+    AND NOT EXISTS (
+        SELECT 1
+        FROM storage.objects so
+        WHERE so.bucket_id = 'facturas'
+        AND fi.imagen_url LIKE '%' || so.name || '%'
+    )
 GROUP BY
     DATE_TRUNC('month', f.created_at)
 ORDER BY
