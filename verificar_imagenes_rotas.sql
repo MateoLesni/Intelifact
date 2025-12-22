@@ -87,11 +87,12 @@ SELECT
     f.proveedor,
     f.nro_oc,
     f.mr_numero,
-    f.usuarios.nombre as usuario,
+    u.nombre as usuario,
     f.id as factura_id,
     'SIN IMAGEN' as problema
 FROM facturas f
 LEFT JOIN factura_imagenes fi ON fi.factura_id = f.id
+LEFT JOIN usuarios u ON u.id = f.usuario_id
 WHERE
     fi.id IS NULL  -- No tiene ninguna imagen asociada
 ORDER BY
