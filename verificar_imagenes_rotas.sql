@@ -6,7 +6,7 @@
 -- =========================================================
 
 -- QUERY 1: Imágenes que DAN 404 (no existen en storage)
--- Solo muestra las que REALMENTE están rotas
+-- Incluye TODAS las imágenes rotas (Supabase Storage + GCS + URLs NULL)
 SELECT
     f.created_at::date as fecha_carga,
     f.local,
@@ -17,24 +17,47 @@ SELECT
     f.mr_estado,
     f.fecha_mr,
     fi.imagen_url,
-    SUBSTRING(fi.imagen_url FROM '/([^/]+)$') as nombre_archivo,
+    fi.renombre,
+    fi.nombre_fisico,
+    SUBSTRING(fi.imagen_url FROM '/([^/]+)$') as nombre_archivo_url,
     f.id as factura_id,
     fi.id as imagen_id,
     CASE
+        WHEN fi.imagen_url IS NULL THEN 'URL NULL'
         WHEN fi.imagen_url LIKE '%supabase.co/storage/%' THEN 'Supabase Storage'
         WHEN fi.imagen_url LIKE '%storage.googleapis.com/%' THEN 'Google Cloud Storage'
         ELSE 'Otro'
-    END as tipo_storage
+    END as tipo_storage,
+    CASE
+        WHEN fi.imagen_url IS NULL THEN 'URL NULL - No se subió la imagen'
+        WHEN fi.imagen_url LIKE '%supabase.co/storage/%'
+             AND NOT EXISTS (
+                 SELECT 1 FROM storage.objects so
+                 WHERE so.bucket_id = 'facturas'
+                 AND fi.imagen_url LIKE '%' || so.name || '%'
+             ) THEN 'Archivo eliminado de Supabase Storage'
+        ELSE 'Verificar manualmente (puede dar 404)'
+    END as razon_404
 FROM facturas f
 JOIN factura_imagenes fi ON fi.factura_id = f.id
 WHERE
-    fi.imagen_url LIKE '%supabase.co/storage/%'
-    -- CRÍTICO: Verificar que el archivo NO existe en storage
-    AND NOT EXISTS (
-        SELECT 1
-        FROM storage.objects so
-        WHERE so.bucket_id = 'facturas'
-        AND fi.imagen_url LIKE '%' || so.name || '%'
+    -- Incluir URLs NULL
+    fi.imagen_url IS NULL
+    OR (
+        -- Incluir imágenes de Supabase que NO existen en storage
+        fi.imagen_url LIKE '%supabase.co/storage/%'
+        AND NOT EXISTS (
+            SELECT 1
+            FROM storage.objects so
+            WHERE so.bucket_id = 'facturas'
+            AND fi.imagen_url LIKE '%' || so.name || '%'
+        )
+    )
+    OR (
+        -- Incluir imágenes de GCS que puedan dar 404
+        -- (las verificaremos manualmente o con el script)
+        fi.imagen_url LIKE '%storage.googleapis.com/%'
+        AND f.created_at::date <= '2025-12-19'  -- Antes de la migración estable
     )
 ORDER BY
     f.created_at DESC,
@@ -42,24 +65,36 @@ ORDER BY
     f.nro_factura;
 
 -- =========================================================
--- QUERY 2: Resumen por local y fecha (SOLO imágenes rotas 404)
+-- QUERY 2: Resumen por local y fecha (TODAS las imágenes con problemas)
 -- =========================================================
 SELECT
     f.created_at::date as fecha,
     f.local,
     COUNT(DISTINCT f.id) as total_facturas_con_404,
     COUNT(fi.id) as total_imagenes_404,
+    SUM(CASE WHEN fi.imagen_url IS NULL THEN 1 ELSE 0 END) as url_null,
+    SUM(CASE WHEN fi.imagen_url LIKE '%supabase.co/storage/%' THEN 1 ELSE 0 END) as supabase_eliminadas,
+    SUM(CASE WHEN fi.imagen_url LIKE '%storage.googleapis.com/%' THEN 1 ELSE 0 END) as gcs_posible_404,
     STRING_AGG(DISTINCT f.nro_factura, ', ' ORDER BY f.nro_factura) as facturas_afectadas
 FROM facturas f
 JOIN factura_imagenes fi ON fi.factura_id = f.id
 WHERE
-    fi.imagen_url LIKE '%supabase.co/storage/%'
-    -- CRÍTICO: Solo contar las que NO existen en storage
-    AND NOT EXISTS (
-        SELECT 1
-        FROM storage.objects so
-        WHERE so.bucket_id = 'facturas'
-        AND fi.imagen_url LIKE '%' || so.name || '%'
+    -- URLs NULL
+    fi.imagen_url IS NULL
+    OR (
+        -- Supabase: archivo eliminado
+        fi.imagen_url LIKE '%supabase.co/storage/%'
+        AND NOT EXISTS (
+            SELECT 1
+            FROM storage.objects so
+            WHERE so.bucket_id = 'facturas'
+            AND fi.imagen_url LIKE '%' || so.name || '%'
+        )
+    )
+    OR (
+        -- GCS: posibles 404 antes de la migración estable
+        fi.imagen_url LIKE '%storage.googleapis.com/%'
+        AND f.created_at::date <= '2025-12-19'
     )
 GROUP BY
     f.created_at::date,
@@ -69,23 +104,32 @@ ORDER BY
     f.local;
 
 -- =========================================================
--- QUERY 3: Resumen por mes (SOLO imágenes rotas 404)
+-- QUERY 3: Resumen por mes (TODAS las imágenes con problemas)
 -- =========================================================
 SELECT
     DATE_TRUNC('month', f.created_at) as mes,
     COUNT(DISTINCT f.id) as facturas_con_404,
     COUNT(fi.id) as imagenes_404,
-    COUNT(DISTINCT f.local) as locales_afectados
+    COUNT(DISTINCT f.local) as locales_afectados,
+    SUM(CASE WHEN fi.imagen_url IS NULL THEN 1 ELSE 0 END) as url_null,
+    SUM(CASE WHEN fi.imagen_url LIKE '%supabase.co/storage/%' THEN 1 ELSE 0 END) as supabase_eliminadas,
+    SUM(CASE WHEN fi.imagen_url LIKE '%storage.googleapis.com/%' THEN 1 ELSE 0 END) as gcs_posible_404
 FROM facturas f
 JOIN factura_imagenes fi ON fi.factura_id = f.id
 WHERE
-    fi.imagen_url LIKE '%supabase.co/storage/%'
-    -- CRÍTICO: Solo contar las que NO existen en storage
-    AND NOT EXISTS (
-        SELECT 1
-        FROM storage.objects so
-        WHERE so.bucket_id = 'facturas'
-        AND fi.imagen_url LIKE '%' || so.name || '%'
+    fi.imagen_url IS NULL
+    OR (
+        fi.imagen_url LIKE '%supabase.co/storage/%'
+        AND NOT EXISTS (
+            SELECT 1
+            FROM storage.objects so
+            WHERE so.bucket_id = 'facturas'
+            AND fi.imagen_url LIKE '%' || so.name || '%'
+        )
+    )
+    OR (
+        fi.imagen_url LIKE '%storage.googleapis.com/%'
+        AND f.created_at::date <= '2025-12-19'
     )
 GROUP BY
     DATE_TRUNC('month', f.created_at)
