@@ -65,17 +65,20 @@ ORDER BY
     f.nro_factura;
 
 -- =========================================================
--- QUERY 2: Resumen por local y fecha (TODAS las imágenes con problemas)
+-- QUERY 2: Listado detallado con nombre de imagen
 -- =========================================================
 SELECT
     f.created_at::date as fecha,
     f.local,
-    COUNT(DISTINCT f.id) as total_facturas_con_404,
-    COUNT(fi.id) as total_imagenes_404,
-    SUM(CASE WHEN fi.imagen_url IS NULL THEN 1 ELSE 0 END) as url_null,
-    SUM(CASE WHEN fi.imagen_url LIKE '%supabase.co/storage/%' THEN 1 ELSE 0 END) as supabase_eliminadas,
-    SUM(CASE WHEN fi.imagen_url LIKE '%storage.googleapis.com/%' THEN 1 ELSE 0 END) as gcs_posible_404,
-    STRING_AGG(DISTINCT f.nro_factura, ', ' ORDER BY f.nro_factura) as facturas_afectadas
+    f.nro_factura,
+    COALESCE(fi.renombre, SUBSTRING(fi.imagen_url FROM '/([^/]+)$'), 'Sin nombre') as nombre_imagen,
+    CASE
+        WHEN fi.imagen_url IS NULL THEN 'URL NULL'
+        WHEN fi.imagen_url LIKE '%supabase.co/storage/%' THEN 'Supabase Eliminada'
+        WHEN fi.imagen_url LIKE '%storage.googleapis.com/%' THEN 'GCS Posible 404'
+        ELSE 'Otro'
+    END as tipo_problema,
+    fi.imagen_url
 FROM facturas f
 JOIN factura_imagenes fi ON fi.factura_id = f.id
 WHERE
@@ -96,12 +99,10 @@ WHERE
         fi.imagen_url LIKE '%storage.googleapis.com/%'
         AND f.created_at::date <= '2025-12-19'
     )
-GROUP BY
-    f.created_at::date,
-    f.local
 ORDER BY
-    f.created_at::date DESC,
-    f.local;
+    f.created_at DESC,
+    f.local,
+    f.nro_factura;
 
 -- =========================================================
 -- QUERY 3: Resumen por mes (TODAS las imágenes con problemas)
