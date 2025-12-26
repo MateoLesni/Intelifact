@@ -1448,6 +1448,13 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
               {selectedImages.map((img, index) => {
                 const tieneError = imagenesConError.has(img.imagen_url);
 
+                // Detectar si es PDF basándose en la URL
+                const esPDF = img.imagen_url && (
+                  img.imagen_url.toLowerCase().endsWith('.pdf') ||
+                  img.imagen_url.includes('.pdf?') ||
+                  img.imagen_url.includes('application/pdf')
+                );
+
                 return (
                   <div key={index} style={{
                     border: tieneError ? '2px solid #e74c3c' : '1px solid #ddd',
@@ -1455,7 +1462,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                     overflow: 'hidden',
                     backgroundColor: tieneError ? '#fee' : '#f9f9f9'
                   }}>
-                    <div style={{ position: 'relative', cursor: tieneError ? 'default' : 'pointer' }} onClick={() => !tieneError && setExpandedImage(img.imagen_url)}>
+                    <div style={{ position: 'relative', cursor: tieneError ? 'default' : 'pointer' }} onClick={() => !tieneError && !esPDF && setExpandedImage(img.imagen_url)}>
                       {tieneError ? (
                         // Mostrar estado de error
                         <div style={{
@@ -1488,6 +1495,31 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                               {img.imagen_url}
                             </code>
                           </details>
+                        </div>
+                      ) : esPDF ? (
+                        // Visor de PDF
+                        <div style={{ position: 'relative', backgroundColor: '#fff' }}>
+                          <iframe
+                            src={img.imagen_url}
+                            style={{
+                              width: '100%',
+                              height: '400px',
+                              border: 'none'
+                            }}
+                            title={`PDF ${index + 1}`}
+                          />
+                          <div style={{
+                            position: 'absolute',
+                            top: '10px',
+                            right: '10px',
+                            backgroundColor: 'rgba(0,0,0,0.6)',
+                            color: 'white',
+                            padding: '5px 10px',
+                            borderRadius: '4px',
+                            fontSize: '0.85rem'
+                          }}>
+                            📄 PDF
+                          </div>
                         </div>
                       ) : (
                         // Mostrar imagen normal
@@ -1523,15 +1555,15 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                     </div>
                     <div style={{ padding: '1rem' }}>
                       <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.5rem' }}>
-                        Imagen {index + 1} de {selectedImages.length}
+                        {esPDF ? 'PDF' : 'Imagen'} {index + 1} de {selectedImages.length}
                       </p>
                       {!tieneError && (
                         <button
-                          onClick={() => descargarImagen(img.imagen_url, img.renombre || `factura_imagen_${index + 1}.jpg`)}
+                          onClick={() => descargarImagen(img.imagen_url, img.renombre || (esPDF ? `factura_${index + 1}.pdf` : `factura_imagen_${index + 1}.jpg`))}
                           className="btn btn-primary"
                           style={{ width: '100%' }}
                         >
-                          ⬇️ Descargar Imagen
+                          ⬇️ Descargar {esPDF ? 'PDF' : 'Imagen'}
                         </button>
                       )}
                       {tieneError && (

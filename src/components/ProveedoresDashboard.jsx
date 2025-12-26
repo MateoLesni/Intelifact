@@ -443,6 +443,13 @@ function ProveedoresDashboard({ user }) {
         {imagenes.map((item, index) => {
           const estaRota = imagenesRotas.has(item.url);
 
+          // Detectar si es PDF basándose en la URL
+          const esPDF = item.url && (
+            item.url.toLowerCase().endsWith('.pdf') ||
+            item.url.includes('.pdf?') ||
+            item.url.includes('application/pdf')
+          );
+
           return (
             <div
               key={index}
@@ -453,7 +460,7 @@ function ProveedoresDashboard({ user }) {
                 backgroundColor: estaRota ? '#fff5f5' : '#f9f9f9'
               }}
             >
-              <div style={{ position: 'relative', cursor: estaRota ? 'default' : 'pointer' }} onClick={() => { if (!estaRota) { setSelectedImage(item.url); setZoomLevel(1); } }}>
+              <div style={{ position: 'relative', cursor: estaRota ? 'default' : (esPDF ? 'default' : 'pointer') }} onClick={() => { if (!estaRota && !esPDF) { setSelectedImage(item.url); setZoomLevel(1); } }}>
                 {estaRota ? (
                   <div style={{
                     width: '100%',
@@ -469,6 +476,31 @@ function ProveedoresDashboard({ user }) {
                     <div style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.5rem' }}>Imagen No Disponible</div>
                     <div style={{ fontSize: '0.85rem', color: '#6c757d', textAlign: 'center', padding: '0 1rem' }}>
                       Esta imagen fue eliminada del storage
+                    </div>
+                  </div>
+                ) : esPDF ? (
+                  // Visor de PDF
+                  <div style={{ position: 'relative', backgroundColor: '#fff' }}>
+                    <iframe
+                      src={item.url}
+                      style={{
+                        width: '100%',
+                        height: '250px',
+                        border: 'none'
+                      }}
+                      title={`PDF ${index + 1}`}
+                    />
+                    <div style={{
+                      position: 'absolute',
+                      top: '10px',
+                      right: '10px',
+                      backgroundColor: 'rgba(0,0,0,0.6)',
+                      color: 'white',
+                      padding: '5px 10px',
+                      borderRadius: '4px',
+                      fontSize: '0.85rem'
+                    }}>
+                      📄 PDF
                     </div>
                   </div>
                 ) : (
@@ -527,14 +559,14 @@ function ProveedoresDashboard({ user }) {
                 color: '#999',
                 marginBottom: '0.5rem'
               }}>
-                Imagen {index + 1} de {imagenes.length}
+                {esPDF ? 'PDF' : 'Imagen'} {index + 1} de {imagenes.length}
               </p>
               <button
                 onClick={() => descargarImagen(item.url, item.nombre)}
                 className="btn btn-primary"
                 style={{ width: '100%', fontSize: '0.85rem', padding: '0.5rem' }}
               >
-                ⬇️ Descargar
+                ⬇️ Descargar {esPDF ? 'PDF' : ''}
               </button>
             </div>
           </div>
