@@ -166,6 +166,9 @@ function ProveedoresDashboard({ user }) {
       let descargadas = 0;
       let fallidas = 0;
 
+      // Rastrear nombres usados para evitar sobrescrituras
+      const nombresUsados = new Map(); // nombre -> contador
+
       for (const img of imagenes) {
         try {
           const response = await fetch(img.url);
@@ -175,7 +178,27 @@ function ProveedoresDashboard({ user }) {
             continue;
           }
           const blob = await response.blob();
-          folder.file(decodeURIComponent(img.nombre), blob);
+
+          // Decodificar el nombre original
+          let nombreArchivo = decodeURIComponent(img.nombre);
+
+          // Si el nombre ya fue usado, agregar sufijo
+          if (nombresUsados.has(nombreArchivo)) {
+            const contador = nombresUsados.get(nombreArchivo) + 1;
+            nombresUsados.set(nombreArchivo, contador);
+
+            // Separar nombre y extensión
+            const lastDot = nombreArchivo.lastIndexOf('.');
+            const nombreSinExt = lastDot > -1 ? nombreArchivo.substring(0, lastDot) : nombreArchivo;
+            const extension = lastDot > -1 ? nombreArchivo.substring(lastDot) : '';
+
+            // Agregar contador: nombre_2.jpg, nombre_3.jpg, etc.
+            nombreArchivo = `${nombreSinExt}_${contador}${extension}`;
+          } else {
+            nombresUsados.set(nombreArchivo, 1);
+          }
+
+          folder.file(nombreArchivo, blob);
           descargadas++;
         } catch (error) {
           console.error(`Error al descargar ${img.nombre}:`, error);

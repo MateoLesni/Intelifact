@@ -199,6 +199,9 @@ function GestionDashboard({ user }) {
       let descargadas = 0;
       let fallidas = 0;
 
+      // Rastrear nombres usados para evitar sobrescrituras
+      const nombresUsados = new Map(); // nombre -> contador
+
       // Descargar y agregar cada imagen al ZIP
       for (const img of imagenes) {
         try {
@@ -209,7 +212,26 @@ function GestionDashboard({ user }) {
             continue;
           }
           const blob = await response.blob();
-          carpetaLocal.file(img.nombre, blob);
+
+          // Manejar nombres duplicados
+          let nombreArchivo = img.nombre;
+
+          if (nombresUsados.has(nombreArchivo)) {
+            const contador = nombresUsados.get(nombreArchivo) + 1;
+            nombresUsados.set(nombreArchivo, contador);
+
+            // Separar nombre y extensión
+            const lastDot = nombreArchivo.lastIndexOf('.');
+            const nombreSinExt = lastDot > -1 ? nombreArchivo.substring(0, lastDot) : nombreArchivo;
+            const extension = lastDot > -1 ? nombreArchivo.substring(lastDot) : '';
+
+            // Agregar contador: nombre_2.jpg, nombre_3.jpg, etc.
+            nombreArchivo = `${nombreSinExt}_${contador}${extension}`;
+          } else {
+            nombresUsados.set(nombreArchivo, 1);
+          }
+
+          carpetaLocal.file(nombreArchivo, blob);
           descargadas++;
           console.log(`Progreso: ${descargadas}/${total}`);
         } catch (error) {
