@@ -195,25 +195,41 @@ function GestionDashboard({ user }) {
       // Mostrar progreso
       const total = imagenes.length;
       let descargadas = 0;
+      let fallidas = 0;
 
       // Descargar y agregar cada imagen al ZIP
       for (const img of imagenes) {
         try {
           const response = await fetch(img.url);
+          if (!response.ok) {
+            console.warn(`Imagen no disponible (${response.status}): ${img.nombre}`);
+            fallidas++;
+            continue;
+          }
           const blob = await response.blob();
           carpetaLocal.file(img.nombre, blob);
           descargadas++;
           console.log(`Progreso: ${descargadas}/${total}`);
         } catch (error) {
           console.error(`Error descargando ${img.nombre}:`, error);
+          fallidas++;
         }
+      }
+
+      if (descargadas === 0) {
+        alert('No se pudo descargar ninguna imagen. Todas las imágenes están rotas o no disponibles.');
+        return;
       }
 
       // Generar y descargar ZIP
       const content = await zip.generateAsync({ type: 'blob' });
       saveAs(content, `${local}_${mes.replace(/ /g, '_')}.zip`);
 
-      alert(`Se descargaron ${descargadas} de ${total} imágenes en un archivo ZIP`);
+      if (fallidas > 0) {
+        alert(`ZIP creado exitosamente.\n\n✓ ${descargadas} imágenes descargadas\n✗ ${fallidas} imágenes no disponibles (404)`);
+      } else {
+        alert(`Se descargaron ${descargadas} imágenes en un archivo ZIP`);
+      }
     } catch (error) {
       console.error('Error creando ZIP:', error);
       alert('Error al crear el archivo ZIP');

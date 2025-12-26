@@ -159,16 +159,39 @@ function ProveedoresDashboard({ user }) {
       const zip = new JSZip();
       const folder = zip.folder(`${categoria}_${fecha.replace(/\//g, '-')}`);
 
+      let descargadas = 0;
+      let fallidas = 0;
+
       for (const img of imagenes) {
-        const response = await fetch(img.url);
-        const blob = await response.blob();
-        folder.file(decodeURIComponent(img.nombre), blob);
+        try {
+          const response = await fetch(img.url);
+          if (!response.ok) {
+            console.warn(`Imagen no disponible (${response.status}): ${img.nombre}`);
+            fallidas++;
+            continue;
+          }
+          const blob = await response.blob();
+          folder.file(decodeURIComponent(img.nombre), blob);
+          descargadas++;
+        } catch (error) {
+          console.error(`Error al descargar ${img.nombre}:`, error);
+          fallidas++;
+        }
+      }
+
+      if (descargadas === 0) {
+        alert('No se pudo descargar ninguna imagen. Todas las imágenes están rotas o no disponibles.');
+        return;
       }
 
       const content = await zip.generateAsync({ type: 'blob' });
       saveAs(content, `${categoria}_${fecha.replace(/\//g, '-')}.zip`);
+
+      if (fallidas > 0) {
+        alert(`ZIP creado exitosamente.\n\n✓ ${descargadas} imágenes descargadas\n✗ ${fallidas} imágenes no disponibles (404)`);
+      }
     } catch (error) {
-      console.error('Error al descargar imágenes:', error);
+      console.error('Error al crear el archivo ZIP:', error);
       alert('Error al crear el archivo ZIP');
     }
   };
