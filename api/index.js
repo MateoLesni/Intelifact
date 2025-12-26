@@ -105,6 +105,13 @@ const compressImage = async (buffer, mimetype) => {
       return buffer;
     }
 
+    // Formatos que no deben ser comprimidos (SVG es vectorial, HEIC/HEIF pueden no ser soportados por Sharp)
+    const NO_COMPRESS_FORMATS = ['image/svg+xml', 'image/heic', 'image/heif'];
+    if (NO_COMPRESS_FORMATS.includes(mimetype)) {
+      console.log(`ℹ️ Formato ${mimetype} no se comprime, usando original`);
+      return buffer;
+    }
+
     // Comprimir imagen con sharp
     // NOTA DE ESCALABILIDAD: Sharp es extremadamente eficiente y usa streaming
     // Procesa millones de imágenes sin problemas de memoria
@@ -286,7 +293,21 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
     }
 
     // Validar tipos de archivo permitidos
-    const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
+    const ALLOWED_TYPES = [
+      // Imágenes comunes
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+      'image/bmp',
+      'image/tiff',
+      'image/svg+xml',
+      'image/heic',
+      'image/heif',
+      // PDFs
+      'application/pdf'
+    ];
     const archivosTipoInvalido = imagenes.filter(img => !ALLOWED_TYPES.includes(img.mimetype));
     if (archivosTipoInvalido.length > 0) {
       return res.status(400).json({
