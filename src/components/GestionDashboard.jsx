@@ -136,9 +136,11 @@ function GestionDashboard({ user }) {
       }
 
       // Solo guardamos la referencia, no cargamos las imágenes todavía
+      // Excluir imágenes con URL NULL (no se pueden descargar ni procesar)
       if (factura.factura_imagenes && factura.factura_imagenes.length > 0) {
         factura.factura_imagenes.forEach(img => {
-          if (!imagenesEliminadas.has(img.imagen_url)) {
+          // Solo agregar si tiene URL válida y no fue eliminada
+          if (img.imagen_url && !imagenesEliminadas.has(img.imagen_url)) {
             carpetas[local][mesAnio].push({
               url: img.imagen_url,
               nombre: img.imagen_url.split('/').pop(),

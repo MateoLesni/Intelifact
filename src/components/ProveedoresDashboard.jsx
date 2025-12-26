@@ -114,14 +114,18 @@ function ProveedoresDashboard({ user }) {
       }
 
       // Agregar TODAS las imágenes (incluyendo las rotas)
+      // PERO: Excluir imágenes con URL NULL (no se pueden descargar)
       if (factura.factura_imagenes && factura.factura_imagenes.length > 0) {
         factura.factura_imagenes.forEach(img => {
-          carpetas[categoria][fechaMR].push({
-            url: img.imagen_url,
-            // Usar renombre si existe, si no, extraer de la URL (fallback para imágenes viejas)
-            nombre: img.renombre || img.imagen_url.split('/').pop(),
-            factura: factura
-          });
+          // Solo agregar si tiene URL válida
+          if (img.imagen_url) {
+            carpetas[categoria][fechaMR].push({
+              url: img.imagen_url,
+              // Usar renombre si existe, si no, extraer de la URL (fallback para imágenes viejas)
+              nombre: img.renombre || img.imagen_url.split('/').pop(),
+              factura: factura
+            });
+          }
         });
       }
     });
