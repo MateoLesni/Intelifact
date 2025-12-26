@@ -596,54 +596,91 @@ function OperacionDashboard({ user }) {
               gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))',
               gap: '2rem'
             }}>
-              {selectedImages.map((img, index) => (
-                <div key={index} style={{
-                  border: '1px solid #ddd',
-                  borderRadius: '8px',
-                  overflow: 'hidden',
-                  backgroundColor: '#f9f9f9'
-                }}>
-                  <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => setExpandedImage(img.imagen_url)}>
-                    <img
-                      src={img.imagen_url}
-                      alt={`Imagen ${index + 1}`}
-                      style={{
-                        width: '100%',
-                        height: '400px',
-                        objectFit: 'contain',
-                        backgroundColor: '#fff',
-                        transition: 'transform 0.2s'
-                      }}
-                      onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
-                      onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                    />
-                    <div style={{
-                      position: 'absolute',
-                      top: '10px',
-                      right: '10px',
-                      backgroundColor: 'rgba(0,0,0,0.6)',
-                      color: 'white',
-                      padding: '5px 10px',
-                      borderRadius: '4px',
-                      fontSize: '0.85rem'
-                    }}>
-                      🔍 Click para ampliar
-                    </div>
-                  </div>
-                  <div style={{ padding: '1rem' }}>
-                    <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.5rem' }}>
-                      Imagen {index + 1} de {selectedImages.length}
-                    </p>
-                    <button
-                      onClick={() => descargarImagen(img.imagen_url, `factura_imagen_${index + 1}.jpg`)}
+              {selectedImages.map((img, index) => {
+                // Detectar si es PDF basándose en la URL
+                const esPDF = img.imagen_url && (
+                  img.imagen_url.toLowerCase().endsWith('.pdf') ||
+                  img.imagen_url.includes('.pdf?') ||
+                  img.imagen_url.includes('application/pdf')
+                );
+
+                return (
+                  <div key={index} style={{
+                    border: '1px solid #ddd',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    backgroundColor: '#f9f9f9'
+                  }}>
+                    {esPDF ? (
+                      // Visor de PDF
+                      <div style={{ position: 'relative', backgroundColor: '#fff' }}>
+                        <iframe
+                          src={img.imagen_url}
+                          style={{
+                            width: '100%',
+                            height: '400px',
+                            border: 'none'
+                          }}
+                          title={`PDF ${index + 1}`}
+                        />
+                        <div style={{
+                          position: 'absolute',
+                          top: '10px',
+                          right: '10px',
+                          backgroundColor: 'rgba(0,0,0,0.6)',
+                          color: 'white',
+                          padding: '5px 10px',
+                          borderRadius: '4px',
+                          fontSize: '0.85rem'
+                        }}>
+                          📄 PDF
+                        </div>
+                      </div>
+                    ) : (
+                      // Visor de imagen
+                      <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => setExpandedImage(img.imagen_url)}>
+                        <img
+                          src={img.imagen_url}
+                          alt={`Imagen ${index + 1}`}
+                          style={{
+                            width: '100%',
+                            height: '400px',
+                            objectFit: 'contain',
+                            backgroundColor: '#fff',
+                            transition: 'transform 0.2s'
+                          }}
+                          onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                          onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                        />
+                        <div style={{
+                          position: 'absolute',
+                          top: '10px',
+                          right: '10px',
+                          backgroundColor: 'rgba(0,0,0,0.6)',
+                          color: 'white',
+                          padding: '5px 10px',
+                          borderRadius: '4px',
+                          fontSize: '0.85rem'
+                        }}>
+                          🔍 Click para ampliar
+                        </div>
+                      </div>
+                    )}
+                    <div style={{ padding: '1rem' }}>
+                      <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '0.5rem' }}>
+                        {esPDF ? 'PDF' : 'Imagen'} {index + 1} de {selectedImages.length}
+                      </p>
+                      <button
+                        onClick={() => descargarImagen(img.imagen_url, esPDF ? `factura_${index + 1}.pdf` : `factura_imagen_${index + 1}.jpg`)}
                       className="btn btn-primary"
                       style={{ width: '100%' }}
                     >
-                      ⬇️ Descargar Imagen
+                      ⬇️ Descargar {esPDF ? 'PDF' : 'Imagen'}
                     </button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
