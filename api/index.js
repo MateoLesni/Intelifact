@@ -379,6 +379,9 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
     console.log(`\n🚀 SUBIENDO ${imagenes.length} IMAGEN(ES) A GOOGLE CLOUD STORAGE`);
     console.log('================================================');
 
+    // Rastrear nombres usados para evitar duplicados en 'renombre'
+    const nombresUsados = new Map(); // nombre base -> contador
+
     // ======= SUBIR IMÁGENES A GOOGLE CLOUD STORAGE =======
     const imagenesPromises = imagenes.map(async (imagen, index) => {
       const sanitizedName = sanitizeFilename(imagen.originalname);
@@ -417,17 +420,36 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
 
         console.log(`✅ URL pública: ${publicUrl}`);
 
+        // ======= GENERAR RENOMBRE ÚNICO =======
+        // Si hay múltiples imágenes con el mismo nombre original, agregar sufijo _2, _3, etc.
+        let renombreUnico = sanitizedName;
+
+        if (nombresUsados.has(sanitizedName)) {
+          const contador = nombresUsados.get(sanitizedName) + 1;
+          nombresUsados.set(sanitizedName, contador);
+
+          // Separar nombre y extensión
+          const lastDot = sanitizedName.lastIndexOf('.');
+          const nombreSinExt = lastDot > -1 ? sanitizedName.substring(0, lastDot) : sanitizedName;
+          const extension = lastDot > -1 ? sanitizedName.substring(lastDot) : '';
+
+          renombreUnico = `${nombreSinExt}_${contador}${extension}`;
+          console.log(`⚠️  Nombre duplicado detectado, renombrando a: ${renombreUnico}`);
+        } else {
+          nombresUsados.set(sanitizedName, 1);
+        }
+
         // ======= INSERTAR EN BASE DE DATOS CON NUEVAS COLUMNAS =======
         const imagenData = {
           factura_id: factura.id,
           imagen_url: publicUrl,
           nombre_fisico: nombreFisico,
-          renombre: sanitizedName, // Por defecto, el nombre original
+          renombre: renombreUnico, // Nombre único con sufijo si es necesario
           content_type: imagen.mimetype,
           file_size_bytes: compressedBuffer.length
         };
 
-        console.log(`💾 Guardando referencia en DB...`);
+        console.log(`💾 Guardando referencia en DB con renombre: ${renombreUnico}`);
 
         const { error: insertError } = await supabase
           .from('factura_imagenes')
