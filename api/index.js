@@ -320,6 +320,31 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
       return res.status(400).json({ error: 'Todos los campos son requeridos' });
     }
 
+    // ======= DEBUG: Log detallado de campos recibidos =======
+    console.log('\n🔍 DATOS RECIBIDOS PARA CREAR FACTURA:');
+    console.log('================================================');
+    console.log(`📅 fecha: "${fecha}" (length: ${fecha?.length}, type: ${typeof fecha})`);
+    console.log(`🏪 local: "${local}" (length: ${local?.length}, type: ${typeof local})`);
+    console.log(`📄 nro_factura: "${nro_factura}" (length: ${nro_factura?.length}, type: ${typeof nro_factura})`);
+    console.log(`📋 nro_oc: "${nro_oc}" (length: ${nro_oc?.length}, type: ${typeof nro_oc})`);
+    console.log(`🏢 proveedor: "${proveedor}" (length: ${proveedor?.length}, type: ${typeof proveedor})`);
+
+    // Detectar caracteres especiales
+    const detectarCaracteresEspeciales = (str, fieldName) => {
+      const especiales = /[^a-zA-Z0-9\s\-_.,áéíóúÁÉÍÓÚñÑ]/g;
+      const matches = str?.match(especiales);
+      if (matches && matches.length > 0) {
+        console.log(`⚠️  ${fieldName} contiene caracteres especiales: ${matches.join(', ')}`);
+        console.log(`   Caracteres completos: [${Array.from(str).map(c => `'${c}'`).join(', ')}]`);
+      }
+    };
+
+    detectarCaracteresEspeciales(nro_factura, 'nro_factura');
+    detectarCaracteresEspeciales(nro_oc, 'nro_oc');
+    detectarCaracteresEspeciales(proveedor, 'proveedor');
+    detectarCaracteresEspeciales(local, 'local');
+    console.log('================================================\n');
+
     // Obtener categoría del local
     const { data: localData, error: localError } = await supabase
       .from('locales')
@@ -351,7 +376,7 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
 
     if (facturaError) {
       console.error('========================================');
-      console.error('ERROR AL INSERTAR FACTURA');
+      console.error('❌ ERROR AL INSERTAR FACTURA');
       console.error('========================================');
       console.error('Error completo:', JSON.stringify(facturaError, null, 2));
       console.error('Mensaje:', facturaError.message);
@@ -364,7 +389,23 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
       let errorMsg = 'Error al crear la factura';
 
       if (facturaError.message?.includes('pattern') || facturaError.message?.includes('formato')) {
-        errorMsg = `ERROR DE FORMATO: ${facturaError.message}\n\nDatos enviados:\n${JSON.stringify(facturaData, null, 2)}`;
+        // Intentar identificar qué campo causó el error
+        let campoProblematico = 'desconocido';
+
+        // PostgreSQL a veces incluye el nombre de la columna en el error
+        if (facturaError.message.includes('nro_factura')) campoProblematico = 'Número de Factura';
+        else if (facturaError.message.includes('nro_oc')) campoProblematico = 'Número de OC';
+        else if (facturaError.message.includes('proveedor')) campoProblematico = 'Proveedor';
+        else if (facturaError.message.includes('local')) campoProblematico = 'Local';
+
+        errorMsg = `ERROR DE FORMATO en el campo: ${campoProblematico}\n\n` +
+                   `El valor ingresado contiene caracteres no permitidos o no cumple con el formato esperado.\n\n` +
+                   `Valores ingresados:\n` +
+                   `• Nro Factura: "${nro_factura}"\n` +
+                   `• Nro OC: "${nro_oc}"\n` +
+                   `• Proveedor: "${proveedor}"\n` +
+                   `• Local: "${local}"\n\n` +
+                   `Por favor verifique que no haya caracteres especiales inválidos (/, \\, |, etc.)`;
       } else if (facturaError.code === '23505') {
         errorMsg = 'Ya existe una factura con ese número. Verifique el número de factura.';
       } else if (facturaError.code === '23503') {
