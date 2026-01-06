@@ -725,20 +725,14 @@ app.post('/api/facturas/:id/mr', async (req, res) => {
 
     console.log(`\n📸 Actualizando nombres virtuales de ${imagenes.length} imagen(es)...`);
 
-    // Limpiar datos para el nombre virtual
-    const localLimpio = sanitizeFilename(factura.local || 'NoLocal');
-    const proveedorLimpio = sanitizeFilename(factura.proveedor || 'NoProveedor');
-    const mrLimpio = sanitizeFilename(mr_numero || 'NoMR');
-    const nroFacturaLimpio = sanitizeFilename(factura.nro_factura || 'NoFactura');
-    const nroOcLimpio = sanitizeFilename(factura.nro_oc || 'NoOC');
-
     // Actualizar el campo 'renombre' en cada imagen (NO tocar archivos físicos)
     for (let i = 0; i < imagenes.length; i++) {
       const img = imagenes[i];
       const extension = path.extname(img.nombre_fisico) || '.jpg';
 
-      // Generar nombre virtual usando el formato FC_
-      const nombreVirtual = `FC_${nroFacturaLimpio}_OC_${nroOcLimpio}_MR_${mrLimpio}_${localLimpio}_${proveedorLimpio}${i > 0 ? `_${i + 1}` : ''}${extension}`;
+      // Generar nombre virtual con el nuevo formato: FC 38891838 OC 8428 Alma Cerrito.jpg
+      // Usamos valores directos sin sanitizar para mantener capitalización y espacios
+      const nombreVirtual = `FC ${factura.nro_factura} OC ${factura.nro_oc} ${factura.local}${i > 0 ? ` ${i + 1}` : ''}${extension}`;
 
       console.log(`${i + 1}. "${img.nombre_fisico}" → "${nombreVirtual}"`);
 
