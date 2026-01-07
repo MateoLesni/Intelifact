@@ -23,7 +23,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
   const [imagenesConError, setImagenesConError] = useState(new Set());
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [showCreateProveedor, setShowCreateProveedor] = useState(false);
-  const [newUser, setNewUser] = useState({ nombre: '', password: '', email: '' });
+  const [newUser, setNewUser] = useState({ nombre: '', password: '', email: '', rol: 'pedidos' });
   const [newProveedor, setNewProveedor] = useState({ proveedor: '' });
   const [filtros, setFiltros] = useState({
     id: '',
@@ -364,14 +364,14 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
           nombre: newUser.nombre,
           email: newUser.email,
           password: newUser.password,
-          rol: 'pedidos'
+          rol: newUser.rol
         })
       });
 
       if (response.ok) {
         alert('Usuario creado correctamente');
         setShowCreateUser(false);
-        setNewUser({ nombre: '', password: '', email: '' });
+        setNewUser({ nombre: '', password: '', email: '', rol: 'pedidos' });
       } else {
         const error = await response.json();
         alert('Error al crear usuario: ' + error.error);
@@ -1672,18 +1672,38 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                   Mínimo 6 caracteres recomendado
                 </small>
               </div>
+              <div className="form-group">
+                <label style={{ color: '#2c3e50', fontWeight: '600' }}>Rol del Usuario</label>
+                <select
+                  value={newUser.rol}
+                  onChange={(e) => setNewUser({ ...newUser, rol: e.target.value })}
+                  required
+                  style={{
+                    borderRadius: '8px',
+                    border: '2px solid #e1e8ed',
+                    padding: '0.875rem',
+                    width: '100%',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="pedidos">Pedidos</option>
+                  <option value="compras">Compras (Solo Lectura)</option>
+                </select>
+              </div>
               <div style={{
-                backgroundColor: '#e8f4fd',
+                backgroundColor: newUser.rol === 'compras' ? '#fff3cd' : '#e8f4fd',
                 padding: '1rem',
                 borderRadius: '8px',
                 marginBottom: '1.5rem',
-                border: '1px solid #b8daf5'
+                border: newUser.rol === 'compras' ? '1px solid #ffc107' : '1px solid #b8daf5'
               }}>
                 <p style={{ margin: 0, fontSize: '0.9rem', color: '#2c3e50' }}>
-                  <strong>Rol:</strong> Pedidos (sin permisos de administrador)
+                  <strong>Permisos del rol {newUser.rol === 'pedidos' ? 'Pedidos' : 'Compras'}:</strong>
                 </p>
                 <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem', color: '#6c757d' }}>
-                  El usuario podrá generar MR pero no editar ni eliminar facturas
+                  {newUser.rol === 'pedidos'
+                    ? 'Puede generar MR pero no editar ni eliminar facturas'
+                    : 'Solo visualización: puede ver facturas, imágenes y filtrar por locales, pero NO puede generar MR, editar ni eliminar'}
                 </p>
               </div>
               <div style={{ display: 'flex', gap: '1rem' }}>
@@ -1691,7 +1711,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                   type="button"
                   onClick={() => {
                     setShowCreateUser(false);
-                    setNewUser({ nombre: '', password: '', email: '' });
+                    setNewUser({ nombre: '', password: '', email: '', rol: 'pedidos' });
                   }}
                   className="btn btn-secondary"
                   style={{ flex: 1, padding: '0.875rem', borderRadius: '8px' }}
