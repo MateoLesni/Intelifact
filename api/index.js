@@ -880,7 +880,7 @@ app.post('/api/usuarios', async (req, res) => {
     }
 
     // Verificar que el rol sea válido
-    const rolesPermitidos = ['operacion', 'pedidos', 'pedidos_admin', 'proveedores'];
+    const rolesPermitidos = ['operacion', 'pedidos', 'pedidos_admin', 'compras', 'proveedores'];
     if (!rolesPermitidos.includes(rol)) {
       return res.status(400).json({ error: 'Rol no válido' });
     }
