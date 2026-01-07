@@ -63,6 +63,8 @@ function App() {
               <OperacionDashboard user={user} />
             ) : user.rol === 'pedidos' || user.rol === 'pedidos_admin' ? (
               <PedidosDashboard user={user} ref={pedidosRef} />
+            ) : user.rol === 'compras' ? (
+              <PedidosDashboard user={user} readOnly={true} vistaCompleta={true} />
             ) : user.rol === 'proveedores' ? (
               <ProveedoresDashboard user={user} />
             ) : user.rol === 'proveedores_viewer' ? (

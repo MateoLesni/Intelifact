@@ -130,8 +130,8 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
       });
     }
 
-    // Filtro de locales seleccionados (para usuarios pedidos, pedidos_admin y proveedores_viewer)
-    if ((user.rol === 'pedidos' || user.rol === 'pedidos_admin' || user.rol === 'proveedores_viewer') && localesSeleccionados.length > 0) {
+    // Filtro de locales seleccionados (para usuarios pedidos, pedidos_admin, compras y proveedores_viewer)
+    if ((user.rol === 'pedidos' || user.rol === 'pedidos_admin' || user.rol === 'compras' || user.rol === 'proveedores_viewer') && localesSeleccionados.length > 0) {
       filtered = filtered.filter(f => localesSeleccionados.includes(f.local));
     }
 
@@ -520,8 +520,8 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <h2 style={{ margin: 0 }}>Gestión de Facturas</h2>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Filtro de Locales - Para usuarios pedidos, pedidos_admin y proveedores_viewer */}
-          {(user.rol === 'pedidos' || user.rol === 'pedidos_admin' || user.rol === 'proveedores_viewer') && (
+          {/* Filtro de Locales - Para usuarios pedidos, pedidos_admin, compras y proveedores_viewer */}
+          {(user.rol === 'pedidos' || user.rol === 'pedidos_admin' || user.rol === 'compras' || user.rol === 'proveedores_viewer') && (
             <div style={{ position: 'relative' }}>
               <button
                 onClick={() => setShowLocalesFilter(!showLocalesFilter)}

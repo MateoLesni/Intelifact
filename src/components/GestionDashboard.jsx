@@ -277,7 +277,7 @@ function GestionDashboard({ user }) {
   };
 
   return (
-    <div style={{ padding: '1.5rem', maxWidth: '1400px', margin: '0 auto' }}>
+    <div style={{ padding: '1.5rem', maxWidth: '1800px', margin: '0 auto' }}>
       <h2 style={{ marginBottom: '1.5rem', color: '#2c3e50' }}>Gestión - Imágenes por Local y Mes</h2>
 
       {/* Filtros */}
