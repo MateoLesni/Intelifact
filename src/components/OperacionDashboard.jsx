@@ -21,6 +21,7 @@ function OperacionDashboard({ user }) {
   const [selectedImages, setSelectedImages] = useState(null);
   const [expandedImage, setExpandedImage] = useState(null);
   const [showHistorial, setShowHistorial] = useState(null);
+  const [creatingFactura, setCreatingFactura] = useState(false);
   const [filtros, setFiltros] = useState({
     id: '',
     fecha: '',
@@ -116,10 +117,17 @@ function OperacionDashboard({ user }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // PROTECCIÓN: Prevenir múltiples submits
+    if (creatingFactura) {
+      return;
+    }
+
     if (imagenes.length === 0) {
       alert('Debe adjuntar al menos una imagen');
       return;
     }
+
+    setCreatingFactura(true);
 
     const formDataToSend = new FormData();
     formDataToSend.append('fecha', formData.fecha);
@@ -151,6 +159,8 @@ function OperacionDashboard({ user }) {
       }
     } catch (error) {
       alert('Error al crear factura: ' + error.message);
+    } finally {
+      setCreatingFactura(false);
     }
   };
 
@@ -332,8 +342,16 @@ function OperacionDashboard({ user }) {
                 </div>
               )}
             </div>
-            <button type="submit" className="btn btn-success">
-              Guardar Factura
+            <button
+              type="submit"
+              className="btn btn-success"
+              disabled={creatingFactura}
+              style={{
+                opacity: creatingFactura ? 0.6 : 1,
+                cursor: creatingFactura ? 'not-allowed' : 'pointer'
+              }}
+            >
+              {creatingFactura ? 'Creando Factura...' : 'Guardar Factura'}
             </button>
           </form>
         </div>

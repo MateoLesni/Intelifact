@@ -354,6 +354,42 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
 
     if (localError) throw new Error('Local no encontrado');
 
+    // ======= PROTECCIÓN: Validar duplicados ANTES de insertar =======
+    // Buscar si ya existe una factura con el mismo nro_factura, local y proveedor
+    const { data: duplicados, error: checkError } = await supabase
+      .from('facturas')
+      .select('id, nro_factura, local, proveedor, created_at')
+      .eq('nro_factura', nro_factura)
+      .eq('local', local)
+      .eq('proveedor', proveedor);
+
+    if (checkError) {
+      console.error('Error al verificar duplicados:', checkError);
+      throw new Error('Error al verificar duplicados en la base de datos');
+    }
+
+    if (duplicados && duplicados.length > 0) {
+      const facturaExistente = duplicados[0];
+      const fechaCreacion = new Date(facturaExistente.created_at).toLocaleString('es-AR');
+
+      console.warn(`⚠️ FACTURA DUPLICADA DETECTADA:`, {
+        id: facturaExistente.id,
+        nro_factura: facturaExistente.nro_factura,
+        local: facturaExistente.local,
+        proveedor: facturaExistente.proveedor,
+        created_at: fechaCreacion
+      });
+
+      throw new Error(
+        `Ya existe una factura con el número "${nro_factura}" para el local "${local}" y proveedor "${proveedor}".\n\n` +
+        `Factura existente ID: ${facturaExistente.id}\n` +
+        `Creada el: ${fechaCreacion}\n\n` +
+        `Si necesita modificarla, use la opción de editar. Si es una nueva factura, verifique el número.`
+      );
+    }
+
+    console.log('✓ No se encontraron duplicados, procediendo con la inserción...');
+
     // Preparar datos para insertar
     const facturaData = {
       fecha,
