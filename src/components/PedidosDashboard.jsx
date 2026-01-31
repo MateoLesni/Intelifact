@@ -64,6 +64,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
     return saved ? JSON.parse(saved) : [];
   });
   const [showLocalesFilter, setShowLocalesFilter] = useState(false);
+  const [busquedaLocal, setBusquedaLocal] = useState('');
 
   // Filtro de proveedores (persistente)
   const [proveedoresSeleccionados, setProveedoresSeleccionados] = useState(() => {
@@ -71,6 +72,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
     return saved ? JSON.parse(saved) : [];
   });
   const [showProveedoresFilter, setShowProveedoresFilter] = useState(false);
+  const [busquedaProveedor, setBusquedaProveedor] = useState('');
 
   // Filtro de rango de fechas (por defecto últimos 30 días)
   const [rangoFechas, setRangoFechas] = useState(() => {
@@ -461,6 +463,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
 
   const limpiarFiltroLocales = () => {
     setLocalesSeleccionados([]);
+    setBusquedaLocal('');
   };
 
   // Funciones para manejar filtro de proveedores
@@ -476,6 +479,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
 
   const limpiarFiltroProveedores = () => {
     setProveedoresSeleccionados([]);
+    setBusquedaProveedor('');
   };
 
   // Funciones para manejar rango de fechas
@@ -501,8 +505,18 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
   // Obtener lista única de locales de las facturas
   const localesUnicos = [...new Set(facturas.map(f => f.local).filter(l => l))].sort();
 
+  // Filtrar locales por búsqueda
+  const localesFiltrados = busquedaLocal.trim()
+    ? localesUnicos.filter(l => l.toLowerCase().includes(busquedaLocal.toLowerCase()))
+    : localesUnicos;
+
   // Obtener lista única de proveedores de las facturas
   const proveedoresUnicos = [...new Set(facturas.map(f => f.proveedor).filter(p => p))].sort();
+
+  // Filtrar proveedores por búsqueda
+  const proveedoresFiltrados = busquedaProveedor.trim()
+    ? proveedoresUnicos.filter(p => p.toLowerCase().includes(busquedaProveedor.toLowerCase()))
+    : proveedoresUnicos;
 
   // Función para formatear fecha y hora en zona horaria de Argentina
   const formatearFechaHoraArgentina = (fechaISO, soloFecha = false) => {
@@ -625,6 +639,22 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                       ✕
                     </button>
                   </div>
+                  {/* Campo de búsqueda */}
+                  <input
+                    type="text"
+                    placeholder="Buscar local..."
+                    value={busquedaLocal}
+                    onChange={(e) => setBusquedaLocal(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.5rem',
+                      marginBottom: '0.75rem',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '0.85rem',
+                      boxSizing: 'border-box'
+                    }}
+                  />
                   {localesSeleccionados.length > 0 && (
                     <button
                       onClick={limpiarFiltroLocales}
@@ -641,11 +671,11 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                         fontWeight: '500'
                       }}
                     >
-                      Limpiar Filtro
+                      Limpiar Filtro ({localesSeleccionados.length})
                     </button>
                   )}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    {localesUnicos.map(local => (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '250px', overflowY: 'auto' }}>
+                    {localesFiltrados.map(local => (
                       <label
                         key={local}
                         style={{
@@ -734,6 +764,22 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                       ✕
                     </button>
                   </div>
+                  {/* Campo de búsqueda */}
+                  <input
+                    type="text"
+                    placeholder="Buscar proveedor..."
+                    value={busquedaProveedor}
+                    onChange={(e) => setBusquedaProveedor(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '0.5rem',
+                      marginBottom: '0.75rem',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '0.85rem',
+                      boxSizing: 'border-box'
+                    }}
+                  />
                   {proveedoresSeleccionados.length > 0 && (
                     <button
                       onClick={limpiarFiltroProveedores}
@@ -750,11 +796,11 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                         fontWeight: '500'
                       }}
                     >
-                      Limpiar Filtro
+                      Limpiar Filtro ({proveedoresSeleccionados.length})
                     </button>
                   )}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                    {proveedoresUnicos.map(proveedor => (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '250px', overflowY: 'auto' }}>
+                    {proveedoresFiltrados.map(proveedor => (
                       <label
                         key={proveedor}
                         style={{
