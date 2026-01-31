@@ -3,6 +3,24 @@ import HistorialAuditoria from './HistorialAuditoria';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
+// Proveedores que NO permiten generar MR para facturas de categoría "Trenes"
+const PROVEEDORES_SIN_MR_TRENES = [
+  'SGOGO',
+  'Panaderia Gourmet (Sgo del Estero)',
+  'SGOPAN',
+  'CELASAN',
+  'CENTRALPAN',
+  'Deposito Central',
+  'Deposito Bimbo',
+  'Deposito Kioscos',
+  'Deposito NG'
+];
+
+// Función para verificar si una factura tiene MR bloqueado
+const esMRBloqueado = (factura) => {
+  return factura.categoria === 'Trenes' && PROVEEDORES_SIN_MR_TRENES.includes(factura.proveedor);
+};
+
 const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = false }, ref) => {
   useImperativeHandle(ref, () => ({
     openCreateUser: () => !readOnly && setShowCreateUser(true),
@@ -1058,8 +1076,21 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
             <tbody>
               {facturasFiltradas
                 .slice((paginaActual - 1) * registrosPorPagina, paginaActual * registrosPorPagina)
-                .map((factura, index) => (
-                <tr key={factura.id} style={{ borderBottom: '1px solid #e1e8ed', backgroundColor: index % 2 === 0 ? 'white' : '#fafbfc', fontSize: '0.8rem' }}>
+                .map((factura, index) => {
+                const mrBloqueado = esMRBloqueado(factura);
+                return (
+                <tr
+                  key={factura.id}
+                  style={{
+                    borderBottom: '1px solid #e1e8ed',
+                    backgroundColor: mrBloqueado
+                      ? '#f0f0f0'
+                      : (index % 2 === 0 ? 'white' : '#fafbfc'),
+                    fontSize: '0.8rem',
+                    opacity: mrBloqueado ? 0.75 : 1
+                  }}
+                  title={mrBloqueado ? 'MR no disponible para este proveedor en Trenes' : ''}
+                >
                   <td style={{ padding: '0.5rem 0.6rem', fontWeight: '500', color: '#666' }}>#{factura.id}</td>
 
                   {editingId === factura.id ? (
@@ -1212,7 +1243,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                         </>
                       ) : (
                         <>
-                          {!readOnly && !factura.mr_estado && (
+                          {!readOnly && !factura.mr_estado && !mrBloqueado && (
                             <button
                               onClick={() => setShowMRModal(factura.id)}
                               style={{
@@ -1287,7 +1318,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                     </div>
                   </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
 
