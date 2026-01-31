@@ -18,7 +18,9 @@ const PROVEEDORES_SIN_MR_TRENES = [
 
 // Función para verificar si una factura tiene MR bloqueado
 const esMRBloqueado = (factura) => {
-  return factura.categoria === 'Trenes' && PROVEEDORES_SIN_MR_TRENES.includes(factura.proveedor);
+  // La categoría puede venir directamente de la factura o del JOIN con locales
+  const categoria = factura.locales?.categoria || factura.categoria;
+  return categoria === 'Trenes' && PROVEEDORES_SIN_MR_TRENES.includes(factura.proveedor);
 };
 
 const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = false }, ref) => {

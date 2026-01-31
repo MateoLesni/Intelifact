@@ -201,6 +201,7 @@ app.get('/api/facturas', async (req, res) => {
           *,
           factura_imagenes(imagen_url, renombre, nombre_fisico),
           usuarios(nombre),
+          locales!facturas_local_fkey(categoria),
           created_at,
           fecha_mr,
           fecha_mr_timestamp
