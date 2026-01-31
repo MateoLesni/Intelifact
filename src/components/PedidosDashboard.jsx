@@ -65,6 +65,13 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
   });
   const [showLocalesFilter, setShowLocalesFilter] = useState(false);
 
+  // Filtro de proveedores (persistente)
+  const [proveedoresSeleccionados, setProveedoresSeleccionados] = useState(() => {
+    const saved = localStorage.getItem(`filtroProveedores_${user.id}`);
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [showProveedoresFilter, setShowProveedoresFilter] = useState(false);
+
   // Filtro de rango de fechas (por defecto últimos 30 días)
   const [rangoFechas, setRangoFechas] = useState(() => {
     const saved = localStorage.getItem(`rangoFechas_${user.id}`);
@@ -106,6 +113,11 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
     localStorage.setItem(`filtroLocales_${user.id}`, JSON.stringify(localesSeleccionados));
   }, [localesSeleccionados, user.id]);
 
+  // Guardar filtro de proveedores en localStorage cuando cambie
+  useEffect(() => {
+    localStorage.setItem(`filtroProveedores_${user.id}`, JSON.stringify(proveedoresSeleccionados));
+  }, [proveedoresSeleccionados, user.id]);
+
   // Guardar rango de fechas en localStorage cuando cambie
   useEffect(() => {
     localStorage.setItem(`rangoFechas_${user.id}`, JSON.stringify(rangoFechas));
@@ -114,7 +126,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
   useEffect(() => {
     // Resetear a página 1 cuando cambien los filtros
     setPaginaActual(1);
-  }, [filtros, filtroMR, filtroFechaMR, filtroFechaCarga, localesSeleccionados, rangoFechas]);
+  }, [filtros, filtroMR, filtroFechaMR, filtroFechaCarga, localesSeleccionados, proveedoresSeleccionados, rangoFechas]);
 
   useEffect(() => {
     // Aplicar filtros
@@ -153,6 +165,11 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
     // Filtro de locales seleccionados (para usuarios pedidos, pedidos_admin, compras y proveedores_viewer)
     if ((user.rol === 'pedidos' || user.rol === 'pedidos_admin' || user.rol === 'compras' || user.rol === 'proveedores_viewer') && localesSeleccionados.length > 0) {
       filtered = filtered.filter(f => localesSeleccionados.includes(f.local));
+    }
+
+    // Filtro de proveedores seleccionados
+    if ((user.rol === 'pedidos' || user.rol === 'pedidos_admin' || user.rol === 'compras' || user.rol === 'proveedores_viewer') && proveedoresSeleccionados.length > 0) {
+      filtered = filtered.filter(f => proveedoresSeleccionados.includes(f.proveedor));
     }
 
     // Filtro de MR
@@ -202,7 +219,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
     });
 
     setFacturasFiltradas(filtered);
-  }, [filtros, filtroMR, filtroFechaMR, filtroFechaCarga, facturas, localesSeleccionados, rangoFechas, user.rol]);
+  }, [filtros, filtroMR, filtroFechaMR, filtroFechaCarga, facturas, localesSeleccionados, proveedoresSeleccionados, rangoFechas, user.rol]);
 
   const loadFacturas = async () => {
     try {
@@ -446,6 +463,21 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
     setLocalesSeleccionados([]);
   };
 
+  // Funciones para manejar filtro de proveedores
+  const toggleProveedorSelection = (proveedorNombre) => {
+    setProveedoresSeleccionados(prev => {
+      if (prev.includes(proveedorNombre)) {
+        return prev.filter(p => p !== proveedorNombre);
+      } else {
+        return [...prev, proveedorNombre];
+      }
+    });
+  };
+
+  const limpiarFiltroProveedores = () => {
+    setProveedoresSeleccionados([]);
+  };
+
   // Funciones para manejar rango de fechas
   const aplicarRangoPreset = (dias) => {
     const hoy = new Date();
@@ -468,6 +500,9 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
 
   // Obtener lista única de locales de las facturas
   const localesUnicos = [...new Set(facturas.map(f => f.local).filter(l => l))].sort();
+
+  // Obtener lista única de proveedores de las facturas
+  const proveedoresUnicos = [...new Set(facturas.map(f => f.proveedor).filter(p => p))].sort();
 
   // Función para formatear fecha y hora en zona horaria de Argentina
   const formatearFechaHoraArgentina = (fechaISO, soloFecha = false) => {
@@ -641,6 +676,115 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                           style={{ cursor: 'pointer' }}
                         />
                         <span style={{ fontSize: '0.875rem', color: '#2c3e50' }}>{local}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Filtro de Proveedores - Para usuarios pedidos, pedidos_admin, compras y proveedores_viewer */}
+          {(user.rol === 'pedidos' || user.rol === 'pedidos_admin' || user.rol === 'compras' || user.rol === 'proveedores_viewer') && (
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setShowProveedoresFilter(!showProveedoresFilter)}
+                style={{
+                  padding: '0.5rem 1rem',
+                  border: '1px solid #e67e22',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  backgroundColor: proveedoresSeleccionados.length > 0 ? '#e67e22' : 'white',
+                  color: proveedoresSeleccionados.length > 0 ? 'white' : '#e67e22',
+                  fontWeight: '600',
+                  fontSize: '0.875rem'
+                }}
+              >
+                🏢 Proveedores {proveedoresSeleccionados.length > 0 && `(${proveedoresSeleccionados.length})`}
+              </button>
+
+              {showProveedoresFilter && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  marginTop: '0.5rem',
+                  backgroundColor: 'white',
+                  border: '1px solid #ddd',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  padding: '1rem',
+                  minWidth: '280px',
+                  maxHeight: '400px',
+                  overflowY: 'auto',
+                  zIndex: 1000
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', borderBottom: '1px solid #ecf0f1', paddingBottom: '0.5rem' }}>
+                    <strong style={{ fontSize: '0.9rem', color: '#2c3e50' }}>Filtrar por Proveedores</strong>
+                    <button
+                      onClick={() => setShowProveedoresFilter(false)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        fontSize: '1.2rem',
+                        cursor: 'pointer',
+                        color: '#95a5a6'
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {proveedoresSeleccionados.length > 0 && (
+                    <button
+                      onClick={limpiarFiltroProveedores}
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem',
+                        marginBottom: '0.75rem',
+                        border: '1px solid #e74c3c',
+                        borderRadius: '4px',
+                        backgroundColor: '#fee',
+                        color: '#e74c3c',
+                        fontSize: '0.85rem',
+                        cursor: 'pointer',
+                        fontWeight: '500'
+                      }}
+                    >
+                      Limpiar Filtro
+                    </button>
+                  )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {proveedoresUnicos.map(proveedor => (
+                      <label
+                        key={proveedor}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          padding: '0.5rem',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          backgroundColor: proveedoresSeleccionados.includes(proveedor) ? '#fdf2e9' : 'transparent',
+                          transition: 'background-color 0.2s'
+                        }}
+                        onMouseOver={(e) => {
+                          if (!proveedoresSeleccionados.includes(proveedor)) {
+                            e.currentTarget.style.backgroundColor = '#f5f5f5';
+                          }
+                        }}
+                        onMouseOut={(e) => {
+                          if (!proveedoresSeleccionados.includes(proveedor)) {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={proveedoresSeleccionados.includes(proveedor)}
+                          onChange={() => toggleProveedorSelection(proveedor)}
+                          style={{ cursor: 'pointer' }}
+                        />
+                        <span style={{ fontSize: '0.875rem', color: '#2c3e50' }}>{proveedor}</span>
                       </label>
                     ))}
                   </div>
