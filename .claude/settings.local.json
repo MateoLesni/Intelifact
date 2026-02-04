@@ -16,7 +16,8 @@
       "Bash(git revert:*)",
       "Bash(git stash:*)",
       "Bash(git rm:*)",
-      "Bash(clip:*)"
+      "Bash(clip:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []

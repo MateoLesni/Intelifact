@@ -16,8 +16,16 @@ const PROVEEDORES_SIN_MR_TRENES = [
   'Deposito NG'
 ];
 
+// Locales que SIEMPRE permiten MR, incluso siendo Trenes con proveedores bloqueados
+const LOCALES_EXCEPCION_MR = ['Alma Cerrito'];
+
 // Función para verificar si una factura tiene MR bloqueado
 const esMRBloqueado = (factura) => {
+  // EXCEPCIÓN: Locales especiales siempre permiten MR
+  if (LOCALES_EXCEPCION_MR.includes(factura.local)) {
+    return false;
+  }
+
   // La categoría puede venir directamente de la factura o del JOIN con locales
   const categoria = factura.locales?.categoria || factura.categoria;
   return categoria === 'Trenes' && PROVEEDORES_SIN_MR_TRENES.includes(factura.proveedor);
