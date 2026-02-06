@@ -369,6 +369,15 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
 
     if (localError) throw new Error('Local no encontrado');
 
+    // Validar que la categoría exista
+    if (!localData || !localData.categoria) {
+      console.error(`⚠️ CATEGORÍA NO ENCONTRADA para local: "${local}"`);
+      console.error('localData:', localData);
+      throw new Error(`El local "${local}" no tiene una categoría asignada. Contacte al administrador.`);
+    }
+
+    console.log(`✓ Categoría del local "${local}": "${localData.categoria}"`);
+
     // ======= PROTECCIÓN: Validar duplicados ANTES de insertar =======
     // Buscar si ya existe una factura con el mismo nro_factura, local y proveedor
     const { data: duplicados, error: checkError } = await supabase
@@ -416,7 +425,18 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
       usuario_carga_id: parseInt(usuario_id)
     };
 
-    console.log('Intentando insertar factura con datos:', facturaData);
+    console.log('====================================');
+    console.log('📤 DATOS QUE SE VAN A INSERTAR:');
+    console.log('====================================');
+    console.log('fecha:', JSON.stringify(fecha));
+    console.log('local:', JSON.stringify(local));
+    console.log('nro_factura:', JSON.stringify(nro_factura));
+    console.log('nro_oc:', JSON.stringify(nro_oc));
+    console.log('proveedor:', JSON.stringify(proveedor));
+    console.log('categoria:', JSON.stringify(localData.categoria));
+    console.log('usuario_carga_id:', usuario_id);
+    console.log('Cantidad de imágenes:', imagenes.length);
+    console.log('====================================');
 
     // Insertar factura
     const { data: factura, error: facturaError } = await supabase
