@@ -276,7 +276,8 @@ app.get('/api/facturas', async (req, res) => {
 // Crear factura con imágenes
 app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
   try {
-    const { fecha, local, nro_factura, nro_oc, proveedor, usuario_id } = req.body;
+    // Usar let para poder aplicar trim
+    let { fecha, local, nro_factura, nro_oc, proveedor, usuario_id } = req.body;
     const imagenes = req.files;
 
     // Validar que haya al menos una imagen
