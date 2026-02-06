@@ -346,6 +346,19 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
     detectarCaracteresEspeciales(local, 'local');
     console.log('================================================\n');
 
+    // ======= VALIDACIÓN PREVENTIVA: Trim de espacios en blanco =======
+    // Eliminar espacios al inicio y final que pueden causar problemas
+    fecha = fecha.trim();
+    local = local.trim();
+    nro_factura = nro_factura.trim();
+    nro_oc = nro_oc.trim();
+    proveedor = proveedor.trim();
+
+    // Verificar que después del trim no queden vacíos
+    if (!fecha || !local || !nro_factura || !nro_oc || !proveedor) {
+      throw new Error('Algún campo quedó vacío después de limpiar espacios. Verifique los datos ingresados.');
+    }
+
     // Obtener categoría del local
     const { data: localData, error: localError } = await supabase
       .from('locales')
@@ -425,24 +438,37 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
 
       let errorMsg = 'Error al crear la factura';
 
-      if (facturaError.message?.includes('pattern') || facturaError.message?.includes('formato')) {
-        // Intentar identificar qué campo causó el error
+      if (facturaError.message?.includes('pattern') || facturaError.message?.includes('formato') || facturaError.message?.includes('check constraint')) {
+        // Intentar identificar qué campo causó el error desde el mensaje o hint de PostgreSQL
         let campoProblematico = 'desconocido';
+        const errorCompleto = JSON.stringify(facturaError).toLowerCase();
 
-        // PostgreSQL a veces incluye el nombre de la columna en el error
-        if (facturaError.message.includes('nro_factura')) campoProblematico = 'Número de Factura';
-        else if (facturaError.message.includes('nro_oc')) campoProblematico = 'Número de OC';
-        else if (facturaError.message.includes('proveedor')) campoProblematico = 'Proveedor';
-        else if (facturaError.message.includes('local')) campoProblematico = 'Local';
+        // Buscar en el mensaje, detalles, hint y code
+        if (errorCompleto.includes('nro_factura') || errorCompleto.includes('factura_nro')) {
+          campoProblematico = 'Número de Factura';
+        } else if (errorCompleto.includes('nro_oc') || errorCompleto.includes('oc_nro')) {
+          campoProblematico = 'Número de OC';
+        } else if (errorCompleto.includes('proveedor')) {
+          campoProblematico = 'Proveedor';
+        } else if (errorCompleto.includes('local')) {
+          campoProblematico = 'Local';
+        } else if (errorCompleto.includes('fecha')) {
+          campoProblematico = 'Fecha';
+        }
 
         errorMsg = `ERROR DE FORMATO en el campo: ${campoProblematico}\n\n` +
                    `El valor ingresado contiene caracteres no permitidos o no cumple con el formato esperado.\n\n` +
                    `Valores ingresados:\n` +
+                   `• Fecha: "${fecha}"\n` +
+                   `• Local: "${local}"\n` +
                    `• Nro Factura: "${nro_factura}"\n` +
                    `• Nro OC: "${nro_oc}"\n` +
-                   `• Proveedor: "${proveedor}"\n` +
-                   `• Local: "${local}"\n\n` +
-                   `Por favor verifique que no haya caracteres especiales inválidos (/, \\, |, etc.)`;
+                   `• Proveedor: "${proveedor}"\n\n` +
+                   `Por favor verifique que:\n` +
+                   `- No haya caracteres especiales raros (/, \\, |, @, #, etc.)\n` +
+                   `- Los números no tengan espacios al inicio o final\n` +
+                   `- La fecha esté en formato correcto\n\n` +
+                   `Error técnico: ${facturaError.message}`;
       } else if (facturaError.code === '23505') {
         errorMsg = 'Ya existe una factura con ese número. Verifique el número de factura.';
       } else if (facturaError.code === '23503') {
