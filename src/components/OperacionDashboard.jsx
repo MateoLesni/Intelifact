@@ -127,6 +127,17 @@ function OperacionDashboard({ user }) {
       return;
     }
 
+    // VALIDACIÓN: Calcular tamaño total de las imágenes
+    const totalSize = imagenes.reduce((sum, img) => sum + img.size, 0);
+    const totalSizeMB = (totalSize / 1024 / 1024).toFixed(2);
+    const MAX_TOTAL_SIZE = 4 * 1024 * 1024; // 4MB total para dejar margen
+
+    if (totalSize > MAX_TOTAL_SIZE) {
+      alert(`El tamaño total de las imágenes (${totalSizeMB} MB) excede el límite de 4 MB.\n\nPor favor:\n- Suba las imágenes por separado en múltiples facturas, o\n- Comprima las imágenes antes de subirlas`);
+      setCreatingFactura(false);
+      return;
+    }
+
     setCreatingFactura(true);
 
     const formDataToSend = new FormData();
