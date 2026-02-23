@@ -5,15 +5,15 @@ const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 // Proveedores que NO permiten generar MR para facturas de categoría "Trenes"
 const PROVEEDORES_SIN_MR_TRENES = [
-  'SGOGO',
-  'Panaderia Gourmet (Sgo del Estero)',
-  'SGOPAN',
-  'CELASAN',
-  'CENTRALPAN',
-  'Deposito Central',
-  'Deposito Bimbo',
-  'Deposito Kioscos',
-  'Deposito NG'
+  'sgogo',
+  'panaderia gourmet (sgo del estero)',
+  'sgopan',
+  'celasan',
+  'centralpan',
+  'deposito central',
+  'deposito bimbo',
+  'deposito kioscos',
+  'deposito ng'
 ];
 
 // Locales que SIEMPRE permiten MR, incluso siendo Trenes con proveedores bloqueados
@@ -28,7 +28,7 @@ const esMRBloqueado = (factura) => {
 
   // La categoría puede venir directamente de la factura o del JOIN con locales
   const categoria = factura.locales?.categoria || factura.categoria;
-  return categoria === 'Trenes' && PROVEEDORES_SIN_MR_TRENES.includes(factura.proveedor);
+  return categoria === 'Trenes' && PROVEEDORES_SIN_MR_TRENES.includes(factura.proveedor?.toLowerCase());
 };
 
 const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = false }, ref) => {
