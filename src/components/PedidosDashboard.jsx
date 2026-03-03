@@ -17,7 +17,7 @@ const PROVEEDORES_SIN_MR_TRENES = [
 ];
 
 // Locales que SIEMPRE permiten MR, incluso siendo Trenes con proveedores bloqueados
-const LOCALES_EXCEPCION_MR = ['Alma Cerrito'];
+const LOCALES_EXCEPCION_MR = ['Alma Cerrito', 'Tostado Trenes'];
 
 // Función para verificar si una factura tiene MR bloqueado
 const esMRBloqueado = (factura) => {
