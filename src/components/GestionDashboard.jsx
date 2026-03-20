@@ -15,6 +15,7 @@ function GestionDashboard({ user }) {
   const [filtroNombreArchivo, setFiltroNombreArchivo] = useState('');
   const [zoomLevel, setZoomLevel] = useState(1);
   const [imagenesEliminadas, setImagenesEliminadas] = useState(new Set());
+  const [proveedorSeleccionado, setProveedorSeleccionado] = useState({});  // { "local_mes": "proveedor" o "todos" }
 
   useEffect(() => {
     loadFacturas();
@@ -144,7 +145,8 @@ function GestionDashboard({ user }) {
             carpetas[local][mesAnio].push({
               url: img.imagen_url,
               nombre: img.imagen_url.split('/').pop(),
-              factura: factura
+              factura: factura,
+              proveedor: factura.proveedor || 'Sin proveedor'
             });
           }
         });
@@ -155,6 +157,24 @@ function GestionDashboard({ user }) {
   };
 
   const carpetas = organizarPorLocalYMes();
+
+  // Obtener proveedores únicos de un local+mes
+  const obtenerProveedores = (local, mes) => {
+    const imagenes = carpetas[local]?.[mes] || [];
+    const proveedores = [...new Set(imagenes.map(img => img.proveedor))].sort();
+    return proveedores;
+  };
+
+  // Obtener proveedor seleccionado para un local+mes
+  const getProveedorKey = (local, mes) => `${local}_${mes}`;
+
+  // Filtrar imágenes por proveedor seleccionado
+  const filtrarPorProveedor = (imagenes, local, mes) => {
+    const key = getProveedorKey(local, mes);
+    const prov = proveedorSeleccionado[key];
+    if (!prov || prov === 'todos') return imagenes;
+    return imagenes.filter(img => img.proveedor === prov);
+  };
 
   // Descargar una imagen individual
   const descargarImagen = async (url, nombre) => {
@@ -175,24 +195,32 @@ function GestionDashboard({ user }) {
     }
   };
 
-  // Descargar todas las imágenes de un mes como ZIP
+  // Descargar todas las imágenes de un mes como ZIP (respeta filtro de proveedor)
   const descargarTodasDelMes = async (local, mes) => {
-    const imagenes = carpetas[local]?.[mes] || [];
+    const imagenesTodas = carpetas[local]?.[mes] || [];
+    const imagenes = filtrarPorProveedor(imagenesTodas, local, mes);
 
     if (imagenes.length === 0) {
       alert('No hay imágenes para descargar');
       return;
     }
 
+    const key = getProveedorKey(local, mes);
+    const prov = proveedorSeleccionado[key];
+    const provLabel = prov && prov !== 'todos' ? ` (${prov})` : '';
+
     // Mostrar confirmación
-    if (!confirm(`¿Descargar ${imagenes.length} imágenes de ${local} - ${mes} como ZIP?`)) {
+    if (!confirm(`¿Descargar ${imagenes.length} imágenes de ${local} - ${mes}${provLabel} como ZIP?`)) {
       return;
     }
 
     try {
       // Crear ZIP
       const zip = new JSZip();
-      const carpetaLocal = zip.folder(`${local}_${mes.replace(/ /g, '_')}`);
+      const nombreCarpeta = prov && prov !== 'todos'
+        ? `${local}_${mes.replace(/ /g, '_')}_${prov.replace(/ /g, '_')}`
+        : `${local}_${mes.replace(/ /g, '_')}`;
+      const carpetaLocal = zip.folder(nombreCarpeta);
 
       // Mostrar progreso
       const total = imagenes.length;
@@ -247,7 +275,7 @@ function GestionDashboard({ user }) {
 
       // Generar y descargar ZIP
       const content = await zip.generateAsync({ type: 'blob' });
-      saveAs(content, `${local}_${mes.replace(/ /g, '_')}.zip`);
+      saveAs(content, `${nombreCarpeta}.zip`);
 
       if (fallidas > 0) {
         alert(`ZIP creado exitosamente.\n\n✓ ${descargadas} imágenes descargadas\n✗ ${fallidas} imágenes no disponibles (404)`);
@@ -426,19 +454,66 @@ function GestionDashboard({ user }) {
                             onMouseOver={(e) => e.target.style.backgroundColor = '#229954'}
                             onMouseOut={(e) => e.target.style.backgroundColor = '#27ae60'}
                           >
-                            ⬇ Descargar todo
+                            {(() => {
+                              const key = getProveedorKey(local, mes);
+                              const prov = proveedorSeleccionado[key];
+                              return prov && prov !== 'todos' ? `⬇ Descargar ${prov}` : '⬇ Descargar todo';
+                            })()}
                           </button>
                         </div>
 
-                        {/* Imágenes del mes */}
+                        {/* Selector de proveedor y imágenes del mes */}
                         {mesAbierto === mes && (
-                          <div style={{
-                            marginTop: '1rem',
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
-                            gap: '0.75rem'
-                          }}>
-                            {imagenesFiltradas(imagenesDelMes).map((item, idx) => (
+                          <div style={{ marginTop: '1rem' }}>
+                            {/* Filtro de proveedor */}
+                            <div style={{
+                              marginBottom: '0.75rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.5rem',
+                              flexWrap: 'wrap'
+                            }}>
+                              <label style={{ fontSize: '0.85rem', color: '#555', fontWeight: '500' }}>
+                                Proveedor:
+                              </label>
+                              <select
+                                value={proveedorSeleccionado[getProveedorKey(local, mes)] || 'todos'}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  setProveedorSeleccionado(prev => ({
+                                    ...prev,
+                                    [getProveedorKey(local, mes)]: e.target.value
+                                  }));
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                style={{
+                                  padding: '0.4rem 0.6rem',
+                                  borderRadius: '6px',
+                                  border: '2px solid #e67e22',
+                                  fontSize: '0.85rem',
+                                  backgroundColor: 'white',
+                                  cursor: 'pointer',
+                                  minWidth: '180px'
+                                }}
+                              >
+                                <option value="todos">Todos los proveedores</option>
+                                {obtenerProveedores(local, mes).map(prov => (
+                                  <option key={prov} value={prov}>{prov}</option>
+                                ))}
+                              </select>
+                              {proveedorSeleccionado[getProveedorKey(local, mes)] && proveedorSeleccionado[getProveedorKey(local, mes)] !== 'todos' && (
+                                <span style={{ fontSize: '0.8rem', color: '#e67e22' }}>
+                                  ({filtrarPorProveedor(imagenesDelMes, local, mes).length} imágenes)
+                                </span>
+                              )}
+                            </div>
+
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+                              gap: '0.75rem'
+                            }}>
+                            {imagenesFiltradas(filtrarPorProveedor(imagenesDelMes, local, mes)).map((item, idx) => (
                               <div
                                 key={idx}
                                 style={{
@@ -491,6 +566,7 @@ function GestionDashboard({ user }) {
                                 </button>
                               </div>
                             ))}
+                            </div>
                           </div>
                         )}
                       </div>
