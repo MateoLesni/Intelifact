@@ -7,6 +7,7 @@ import PedidosDashboard from './components/PedidosDashboard';
 import ProveedoresDashboard from './components/ProveedoresDashboard';
 import ProveedoresViewerDashboard from './components/ProveedoresViewerDashboard';
 import GestionViewerDashboard from './components/GestionViewerDashboard';
+import ComprasViewerDashboard from './components/ComprasViewerDashboard';
 import ImagenVerifier from './components/ImagenVerifier';
 
 function App() {
@@ -64,7 +65,7 @@ function App() {
             ) : user.rol === 'pedidos' || user.rol === 'pedidos_admin' ? (
               <PedidosDashboard user={user} ref={pedidosRef} />
             ) : user.rol === 'compras' ? (
-              <PedidosDashboard user={user} readOnly={true} vistaCompleta={true} />
+              <ComprasViewerDashboard user={user} />
             ) : user.rol === 'proveedores' ? (
               <ProveedoresDashboard user={user} />
             ) : user.rol === 'proveedores_viewer' ? (

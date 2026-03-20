@@ -1,20 +1,17 @@
 import React, { useState } from 'react';
-import GestionDashboard from './GestionDashboard';
 import PedidosDashboard from './PedidosDashboard';
 import ProveedorMesDashboard from './ProveedorMesDashboard';
 
-function GestionViewerDashboard({ user }) {
-  const [vistaActual, setVistaActual] = useState('gestion');
+function ComprasViewerDashboard({ user }) {
+  const [vistaActual, setVistaActual] = useState('pedidos');
 
   const tabs = [
-    { id: 'gestion', label: 'Locales / Meses', icon: '📁' },
-    { id: 'proveedores', label: 'Proveedores / Meses', icon: '🏢' },
-    { id: 'pedidos', label: 'Pedidos (Solo lectura)', icon: '📋' }
+    { id: 'pedidos', label: 'Pedidos (Solo lectura)', icon: '📋' },
+    { id: 'proveedores', label: 'Proveedores / Meses', icon: '🏢' }
   ];
 
   return (
     <div style={{ padding: '1rem' }}>
-      {/* Botones de alternancia */}
       <div style={{
         display: 'flex',
         gap: '1rem',
@@ -44,16 +41,13 @@ function GestionViewerDashboard({ user }) {
         ))}
       </div>
 
-      {/* Contenido según vista seleccionada */}
-      {vistaActual === 'gestion' ? (
-        <GestionDashboard user={user} />
-      ) : vistaActual === 'proveedores' ? (
-        <ProveedorMesDashboard user={user} />
-      ) : (
+      {vistaActual === 'pedidos' ? (
         <PedidosDashboard user={user} readOnly={true} vistaCompleta={true} />
+      ) : (
+        <ProveedorMesDashboard user={user} />
       )}
     </div>
   );
 }
 
-export default GestionViewerDashboard;
+export default ComprasViewerDashboard;
