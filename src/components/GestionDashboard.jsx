@@ -4,10 +4,11 @@ import { saveAs } from 'file-saver';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
-function GestionDashboard({ user }) {
-  const [facturas, setFacturas] = useState([]);
+function GestionDashboard({ user, facturas: facturasExterna, loading: loadingExterno }) {
+  const usaDataExterna = facturasExterna !== undefined;
+  const [facturasLocal, setFacturasLocal] = useState([]);
+  const [loadingLocal, setLoadingLocal] = useState(!usaDataExterna);
   const [facturasFiltradas, setFacturasFiltradas] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(null);
   const [localAbierto, setLocalAbierto] = useState(null);
   const [mesAbierto, setMesAbierto] = useState(null);
@@ -15,22 +16,19 @@ function GestionDashboard({ user }) {
   const [filtroNombreArchivo, setFiltroNombreArchivo] = useState('');
   const [zoomLevel, setZoomLevel] = useState(1);
   const [imagenesEliminadas, setImagenesEliminadas] = useState(new Set());
-  const [proveedorSeleccionado, setProveedorSeleccionado] = useState({});  // { "local_mes": "proveedor" o "todos" }
+  const [proveedorSeleccionado, setProveedorSeleccionado] = useState({});
+
+  const facturas = usaDataExterna ? facturasExterna : facturasLocal;
+  const loading = usaDataExterna ? loadingExterno : loadingLocal;
 
   useEffect(() => {
+    if (usaDataExterna) return;
     loadFacturas();
-
-    // Auto-refresh cada 5 minutos para mantener datos actualizados
-    const intervalId = setInterval(() => {
-      loadFacturas();
-    }, 300000); // 5 minutos
-
-    // Limpiar intervalo al desmontar componente
+    const intervalId = setInterval(() => loadFacturas(), 300000);
     return () => clearInterval(intervalId);
   }, []);
 
   useEffect(() => {
-    // Aplicar filtro global
     if (!filtroGlobal.trim()) {
       setFacturasFiltradas(facturas);
     } else {
@@ -50,12 +48,11 @@ function GestionDashboard({ user }) {
     try {
       const response = await fetch(`${API_URL}/facturas?rol=${user.rol}&userId=${user.id}`);
       const data = await response.json();
-      setFacturas(data);
-      setFacturasFiltradas(data);
+      setFacturasLocal(data);
     } catch (error) {
       console.error('Error al cargar facturas:', error);
     } finally {
-      setLoading(false);
+      setLoadingLocal(false);
     }
   };
 

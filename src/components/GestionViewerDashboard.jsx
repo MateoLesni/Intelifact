@@ -1,10 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import GestionDashboard from './GestionDashboard';
 import PedidosDashboard from './PedidosDashboard';
 import ProveedorMesDashboard from './ProveedorMesDashboard';
 
+const API_URL = import.meta.env.VITE_API_URL || '/api';
+
 function GestionViewerDashboard({ user }) {
   const [vistaActual, setVistaActual] = useState('gestion');
+  const [facturas, setFacturas] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadFacturas = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_URL}/facturas?rol=${user.rol}&userId=${user.id}`);
+      const data = await response.json();
+      setFacturas(data);
+    } catch (error) {
+      console.error('Error al cargar facturas:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user.rol, user.id]);
+
+  useEffect(() => {
+    loadFacturas();
+    const intervalId = setInterval(() => loadFacturas(), 300000);
+    return () => clearInterval(intervalId);
+  }, [loadFacturas]);
 
   const tabs = [
     { id: 'gestion', label: 'Locales / Meses', icon: '📁' },
@@ -46,9 +68,9 @@ function GestionViewerDashboard({ user }) {
 
       {/* Contenido según vista seleccionada */}
       {vistaActual === 'gestion' ? (
-        <GestionDashboard user={user} />
+        <GestionDashboard user={user} facturas={facturas} loading={loading} />
       ) : vistaActual === 'proveedores' ? (
-        <ProveedorMesDashboard user={user} />
+        <ProveedorMesDashboard user={user} facturas={facturas} loading={loading} />
       ) : (
         <PedidosDashboard user={user} readOnly={true} vistaCompleta={true} />
       )}

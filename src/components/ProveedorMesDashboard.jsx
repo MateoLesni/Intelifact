@@ -4,10 +4,11 @@ import { saveAs } from 'file-saver';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
-function ProveedorMesDashboard({ user }) {
-  const [facturas, setFacturas] = useState([]);
+function ProveedorMesDashboard({ user, facturas: facturasExterna, loading: loadingExterno }) {
+  const usaDataExterna = facturasExterna !== undefined;
+  const [facturasLocal, setFacturasLocal] = useState([]);
+  const [loadingLocal, setLoadingLocal] = useState(!usaDataExterna);
   const [facturasFiltradas, setFacturasFiltradas] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(null);
   const [proveedorAbierto, setProveedorAbierto] = useState(null);
   const [mesAbierto, setMesAbierto] = useState(null);
@@ -15,7 +16,11 @@ function ProveedorMesDashboard({ user }) {
   const [zoomLevel, setZoomLevel] = useState(1);
   const [imagenesEliminadas, setImagenesEliminadas] = useState(new Set());
 
+  const facturas = usaDataExterna ? facturasExterna : facturasLocal;
+  const loading = usaDataExterna ? loadingExterno : loadingLocal;
+
   useEffect(() => {
+    if (usaDataExterna) return;
     loadFacturas();
     const intervalId = setInterval(() => loadFacturas(), 300000);
     return () => clearInterval(intervalId);
@@ -38,12 +43,11 @@ function ProveedorMesDashboard({ user }) {
     try {
       const response = await fetch(`${API_URL}/facturas?rol=${user.rol}&userId=${user.id}`);
       const data = await response.json();
-      setFacturas(data);
-      setFacturasFiltradas(data);
+      setFacturasLocal(data);
     } catch (error) {
       console.error('Error al cargar facturas:', error);
     } finally {
-      setLoading(false);
+      setLoadingLocal(false);
     }
   };
 
