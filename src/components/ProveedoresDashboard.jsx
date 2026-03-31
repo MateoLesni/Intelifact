@@ -104,9 +104,9 @@ function ProveedoresDashboard({ user }) {
         ? 'Notas de Crédito'
         : (factura.locales?.categoria || 'Sin categoría');
 
-      // Para NC: usar fecha de la factura (no tienen fecha_mr)
+      // Para NC: usar fecha de carga (created_at), no fecha de factura
       const fechaMR = factura.tipo === 'nota_credito'
-        ? formatearSoloFecha(factura.fecha)
+        ? formatearSoloFecha(factura.created_at)
         : formatearSoloFecha(factura.fecha_mr);
 
       if (!carpetas[categoria]) {
