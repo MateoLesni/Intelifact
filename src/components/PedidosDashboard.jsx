@@ -316,7 +316,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
     if (!confirm('¿Está seguro de eliminar esta factura?')) return;
 
     try {
-      const response = await fetch(`${API_URL}/facturas/${id}?usuario_id=${user.id}`, {
+      const response = await fetch(`${API_URL}/facturas/${id}?usuario_id=${user.id}&rol=${user.rol}`, {
         method: 'DELETE'
       });
 
@@ -1514,6 +1514,24 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                                 🗑️
                               </button>
                             </>
+                          )}
+                          {user.rol === 'compras' && factura.tipo === 'nota_credito' && (
+                            <button
+                              onClick={() => handleDelete(factura.id)}
+                              style={{
+                                padding: '0.35rem 0.6rem',
+                                fontSize: '0.75rem',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                backgroundColor: '#e74c3c',
+                                color: 'white',
+                                fontWeight: '500'
+                              }}
+                              title="Eliminar NC"
+                            >
+                              🗑️
+                            </button>
                           )}
                           <button
                             onClick={() => setShowHistorial(factura.id)}
