@@ -143,7 +143,8 @@ function GestionDashboard({ user, facturas: facturasExterna, loading: loadingExt
               url: img.imagen_url,
               nombre: img.imagen_url.split('/').pop(),
               factura: factura,
-              proveedor: factura.proveedor || 'Sin proveedor'
+              proveedor: factura.proveedor || 'Sin proveedor',
+              esNotaCredito: factura.tipo === 'nota_credito'
             });
           }
         });
@@ -521,6 +522,20 @@ function GestionDashboard({ user, facturas: facturasExterna, loading: loadingExt
                                   backgroundColor: '#fff'
                                 }}
                               >
+                                {item.esNotaCredito && (
+                                  <span style={{
+                                    position: 'absolute',
+                                    top: '5px',
+                                    left: '5px',
+                                    backgroundColor: '#e74c3c',
+                                    color: 'white',
+                                    padding: '0.1rem 0.4rem',
+                                    borderRadius: '4px',
+                                    fontSize: '0.6rem',
+                                    fontWeight: '700',
+                                    zIndex: 2
+                                  }}>NC</span>
+                                )}
                                 <img
                                   src={item.url}
                                   alt={item.nombre}

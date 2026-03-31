@@ -21,6 +21,9 @@ const LOCALES_EXCEPCION_MR = ['Alma Cerrito', 'Tostado Trenes'];
 
 // Función para verificar si una factura tiene MR bloqueado
 const esMRBloqueado = (factura) => {
+  // Las Notas de Crédito NUNCA tienen MR
+  if (factura.tipo === 'nota_credito') return true;
+
   // EXCEPCIÓN: Locales especiales siempre permiten MR
   if (LOCALES_EXCEPCION_MR.includes(factura.local)) {
     return false;
@@ -1283,13 +1286,15 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                   key={factura.id}
                   style={{
                     borderBottom: '1px solid #e1e8ed',
-                    backgroundColor: mrBloqueado
-                      ? '#f0f0f0'
-                      : (index % 2 === 0 ? 'white' : '#fafbfc'),
+                    backgroundColor: factura.tipo === 'nota_credito'
+                      ? '#fde8e8'
+                      : mrBloqueado
+                        ? '#f0f0f0'
+                        : (index % 2 === 0 ? 'white' : '#fafbfc'),
                     fontSize: '0.8rem',
-                    opacity: mrBloqueado ? 0.75 : 1
+                    opacity: mrBloqueado && factura.tipo !== 'nota_credito' ? 0.75 : 1
                   }}
-                  title={mrBloqueado ? 'MR no disponible para este proveedor en Trenes' : ''}
+                  title={factura.tipo === 'nota_credito' ? 'Nota de Crédito' : (mrBloqueado ? 'MR no disponible para este proveedor en Trenes' : '')}
                 >
                   <td style={{ padding: '0.5rem 0.6rem', fontWeight: '500', color: '#666' }}>#{factura.id}</td>
 
@@ -1355,7 +1360,20 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                         })()}
                       </td>
                       <td style={{ padding: '0.5rem 0.6rem', color: '#444' }}>{factura.local}</td>
-                      <td style={{ padding: '0.5rem 0.6rem', fontWeight: '500', color: '#2c3e50' }}>{factura.nro_factura}</td>
+                      <td style={{ padding: '0.5rem 0.6rem', fontWeight: '500', color: '#2c3e50' }}>
+                        {factura.tipo === 'nota_credito' && (
+                          <span style={{
+                            backgroundColor: '#e74c3c',
+                            color: 'white',
+                            padding: '0.1rem 0.4rem',
+                            borderRadius: '4px',
+                            fontSize: '0.6rem',
+                            marginRight: '0.3rem',
+                            fontWeight: '700'
+                          }}>NC</span>
+                        )}
+                        {factura.nro_factura}
+                      </td>
                       <td style={{ padding: '0.5rem 0.6rem', color: '#444' }}>{factura.nro_oc}</td>
                       <td style={{ padding: '0.5rem 0.6rem', color: '#444', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{factura.proveedor}</td>
                     </>
@@ -1461,7 +1479,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                               MR
                             </button>
                           )}
-                          {!readOnly && user.rol === 'pedidos_admin' && (
+                          {!readOnly && user.rol === 'pedidos_admin' && factura.tipo !== 'nota_credito' && (
                             <>
                               <button
                                 onClick={() => handleEdit(factura)}

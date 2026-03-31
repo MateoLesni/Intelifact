@@ -220,8 +220,8 @@ app.get('/api/facturas', async (req, res) => {
         const locales = userLocales?.map(ul => ul.local) || [];
         query = query.in('local', locales);
       } else if (rol === 'proveedores' || (rol === 'proveedores_viewer' && vistaCompleta !== 'true')) {
-        // Solo facturas con MR (excepto proveedores_viewer con vistaCompleta)
-        query = query.eq('mr_estado', true);
+        // Facturas con MR + Notas de Crédito (que viajan directo a Proveedores)
+        query = query.or('mr_estado.eq.true,tipo.eq.nota_credito');
       }
       // rol 'pedidos', 'pedidos_admin', 'gestion' y 'proveedores_viewer' (con vistaCompleta) ven todas las facturas
 
@@ -277,7 +277,8 @@ app.get('/api/facturas', async (req, res) => {
 app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
   try {
     // Usar let para poder aplicar trim
-    let { fecha, local, nro_factura, nro_oc, proveedor, usuario_id } = req.body;
+    let { fecha, local, nro_factura, nro_oc, proveedor, usuario_id, tipo } = req.body;
+    tipo = tipo || 'factura'; // Default a 'factura' si no se envía
     const imagenes = req.files;
 
     // Validar que haya al menos una imagen
@@ -382,10 +383,11 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
     // Buscar si ya existe una factura con el mismo nro_factura, local y proveedor
     const { data: duplicados, error: checkError } = await supabase
       .from('facturas')
-      .select('id, nro_factura, local, proveedor, created_at')
+      .select('id, nro_factura, local, proveedor, tipo, created_at')
       .eq('nro_factura', nro_factura)
       .eq('local', local)
-      .eq('proveedor', proveedor);
+      .eq('proveedor', proveedor)
+      .eq('tipo', tipo);
 
     if (checkError) {
       console.error('Error al verificar duplicados:', checkError);
@@ -404,11 +406,12 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
         created_at: fechaCreacion
       });
 
+      const tipoLabel = tipo === 'nota_credito' ? 'nota de crédito' : 'factura';
       throw new Error(
-        `Ya existe una factura con el número "${nro_factura}" para el local "${local}" y proveedor "${proveedor}".\n\n` +
-        `Factura existente ID: ${facturaExistente.id}\n` +
+        `Ya existe una ${tipoLabel} con el número "${nro_factura}" para el local "${local}" y proveedor "${proveedor}".\n\n` +
+        `${tipoLabel.charAt(0).toUpperCase() + tipoLabel.slice(1)} existente ID: ${facturaExistente.id}\n` +
         `Creada el: ${fechaCreacion}\n\n` +
-        `Si necesita modificarla, use la opción de editar. Si es una nueva factura, verifique el número.`
+        `Si necesita modificarla, use la opción de editar. Si es una nueva ${tipoLabel}, verifique el número.`
       );
     }
 
@@ -422,7 +425,8 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
       nro_oc,
       proveedor,
       categoria: localData.categoria,
-      usuario_carga_id: parseInt(usuario_id)
+      usuario_carga_id: parseInt(usuario_id),
+      tipo
     };
 
     console.log('====================================');
@@ -602,6 +606,16 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
     console.log(`✅ TODAS LAS IMÁGENES SUBIDAS EXITOSAMENTE`);
     console.log('================================================\n');
 
+    // Registrar auditoría si es nota de crédito
+    if (tipo === 'nota_credito') {
+      await supabase.from('auditoria').insert({
+        factura_id: factura.id,
+        usuario_id: parseInt(usuario_id),
+        accion: 'carga_nota_credito',
+        detalles: { fecha, local, nro_factura, nro_oc, proveedor }
+      });
+    }
+
     res.json(factura);
   } catch (error) {
     console.error('Error creating factura:', error);
@@ -623,6 +637,14 @@ app.put('/api/facturas/:id', async (req, res) => {
       .select('*')
       .eq('id', id)
       .single();
+
+    // Bloquear edición de Notas de Crédito desde Pedidos
+    if (facturaAnterior && facturaAnterior.tipo === 'nota_credito') {
+      const { rol } = req.body;
+      if (!rol || (rol !== 'compras')) {
+        return res.status(403).json({ error: 'Las Notas de Crédito solo pueden editarse desde Compras' });
+      }
+    }
 
     // Actualizar factura
     const { data, error } = await supabase
@@ -677,6 +699,14 @@ app.delete('/api/facturas/:id', async (req, res) => {
       .select('*, factura_imagenes(*)')
       .eq('id', id)
       .single();
+
+    // Bloquear eliminación de Notas de Crédito desde Pedidos
+    if (facturaAnterior && facturaAnterior.tipo === 'nota_credito') {
+      const { rol } = req.query;
+      if (!rol || (rol !== 'compras')) {
+        return res.status(403).json({ error: 'Las Notas de Crédito solo pueden eliminarse desde Compras' });
+      }
+    }
 
     // IMPORTANTE: Registrar en auditoría ANTES de eliminar (por el foreign key constraint)
     console.log('Registrando eliminación en auditoría...');
@@ -760,6 +790,11 @@ app.post('/api/facturas/:id/mr', async (req, res) => {
 
     if (facturaError || !factura) {
       throw new Error('Factura no encontrada');
+    }
+
+    // Bloquear MR para Notas de Crédito
+    if (factura.tipo === 'nota_credito') {
+      return res.status(400).json({ error: 'No se puede generar MR para una Nota de Crédito' });
     }
 
     console.log(`📄 Factura: ${factura.nro_factura}`);
@@ -863,7 +898,17 @@ app.post('/api/facturas/:id/mr', async (req, res) => {
 
 app.get('/api/locales', async (req, res) => {
   try {
-    const { userId } = req.query;
+    const { userId, rol } = req.query;
+
+    // Compras ve todos los locales
+    if (rol === 'compras') {
+      const { data, error } = await supabase
+        .from('locales')
+        .select('*')
+        .order('local', { ascending: true });
+      if (error) throw error;
+      return res.json(data);
+    }
 
     // Obtener locales asignados al usuario
     const { data, error } = await supabase

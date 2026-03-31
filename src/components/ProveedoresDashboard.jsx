@@ -99,11 +99,15 @@ function ProveedoresDashboard({ user }) {
     const carpetas = {};
 
     facturasFiltradas.forEach(factura => {
-      // La categoría viene de la relación con locales
-      const categoria = factura.locales?.categoria || 'Sin categoría';
+      // Las NC van en una carpeta especial "Notas de Crédito"
+      const categoria = factura.tipo === 'nota_credito'
+        ? 'Notas de Crédito'
+        : (factura.locales?.categoria || 'Sin categoría');
 
-      // Formatear fecha usando la función que maneja timestamps correctamente
-      const fechaMR = formatearSoloFecha(factura.fecha_mr);
+      // Para NC: usar fecha de la factura (no tienen fecha_mr)
+      const fechaMR = factura.tipo === 'nota_credito'
+        ? formatearSoloFecha(factura.fecha)
+        : formatearSoloFecha(factura.fecha_mr);
 
       if (!carpetas[categoria]) {
         carpetas[categoria] = {};
