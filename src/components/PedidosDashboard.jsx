@@ -10,6 +10,7 @@ const PROVEEDORES_SIN_MR_TRENES = [
   'sgopan',
   'celasan',
   'centralpan',
+  'deposito centralpan',
   'deposito central',
   'deposito bimbo',
   'deposito kioscos',
