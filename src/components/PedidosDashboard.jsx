@@ -43,6 +43,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
   }));
   const [facturas, setFacturas] = useState([]);
   const [facturasFiltradas, setFacturasFiltradas] = useState([]);
+  const [facturasBase, setFacturasBase] = useState([]); // Facturas filtradas SIN filtro MR (para contadores)
   const [locales, setLocales] = useState([]);
   const [proveedores, setProveedores] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -187,13 +188,6 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
       filtered = filtered.filter(f => proveedoresSeleccionados.includes(f.proveedor));
     }
 
-    // Filtro de MR (excluir facturas con MR bloqueado de los conteos)
-    if (filtroMR === 'con_mr') {
-      filtered = filtered.filter(f => f.mr_estado === true && !esMRBloqueado(f));
-    } else if (filtroMR === 'sin_mr') {
-      filtered = filtered.filter(f => !f.mr_estado && !esMRBloqueado(f));
-    }
-
     // Filtro por fecha de MR (calendario)
     if (filtroFechaMR.trim()) {
       filtered = filtered.filter(f => {
@@ -232,6 +226,16 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
         });
       }
     });
+
+    // Guardar facturas base (antes del filtro MR) para contadores consistentes
+    setFacturasBase(filtered);
+
+    // Aplicar filtro de MR al final (excluir facturas con MR bloqueado)
+    if (filtroMR === 'con_mr') {
+      filtered = filtered.filter(f => f.mr_estado === true && !esMRBloqueado(f));
+    } else if (filtroMR === 'sin_mr') {
+      filtered = filtered.filter(f => !f.mr_estado && !esMRBloqueado(f));
+    }
 
     setFacturasFiltradas(filtered);
   }, [filtros, filtroMR, filtroFechaMR, filtroFechaCarga, facturas, localesSeleccionados, proveedoresSeleccionados, rangoFechas, user.rol]);
@@ -1086,7 +1090,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                 transition: 'all 0.2s'
               }}
             >
-              Todas ({facturasFiltradas.length})
+              Todas ({facturasBase.filter(f => !esMRBloqueado(f)).length})
             </button>
             <button
               onClick={() => setFiltroMR('con_mr')}
@@ -1102,7 +1106,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                 transition: 'all 0.2s'
               }}
             >
-              Con MR ({facturasFiltradas.filter(f => f.mr_estado && !esMRBloqueado(f)).length})
+              Con MR ({facturasBase.filter(f => f.mr_estado && !esMRBloqueado(f)).length})
             </button>
             <button
               onClick={() => setFiltroMR('sin_mr')}
@@ -1118,7 +1122,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                 transition: 'all 0.2s'
               }}
             >
-              Sin MR ({facturasFiltradas.filter(f => !f.mr_estado && !esMRBloqueado(f)).length})
+              Sin MR ({facturasBase.filter(f => !f.mr_estado && !esMRBloqueado(f)).length})
             </button>
           </div>
         </div>
