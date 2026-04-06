@@ -271,9 +271,11 @@ app.get('/api/facturas', async (req, res) => {
 
     // Filtros de columnas (búsqueda parcial)
     if (filtroId) {
-      // Usar filter con cast a text para búsqueda parcial de ID
-      countQuery = countQuery.filter('id::text', 'like', `%${filtroId}%`);
-      dataQuery = dataQuery.filter('id::text', 'like', `%${filtroId}%`);
+      const idNum = parseInt(filtroId);
+      if (!isNaN(idNum)) {
+        countQuery = countQuery.eq('id', idNum);
+        dataQuery = dataQuery.eq('id', idNum);
+      }
     }
     if (filtroFecha) {
       // El usuario escribe en formato DD/MM/YYYY, convertir a YYYY-MM-DD para la DB
@@ -284,9 +286,8 @@ app.get('/api/facturas', async (req, res) => {
           fechaBusqueda = `${partes[2]}-${partes[1]}-${partes[0]}`;
         }
       }
-      // Usar filter con cast a text para búsqueda parcial de fecha
-      countQuery = countQuery.filter('fecha::text', 'like', `%${fechaBusqueda}%`);
-      dataQuery = dataQuery.filter('fecha::text', 'like', `%${fechaBusqueda}%`);
+      countQuery = countQuery.eq('fecha', fechaBusqueda);
+      dataQuery = dataQuery.eq('fecha', fechaBusqueda);
     }
     if (filtroLocal) {
       countQuery = countQuery.ilike('local', `%${filtroLocal}%`);
