@@ -292,14 +292,32 @@ app.get('/api/facturas/contadores', async (req, res) => {
     // Locales excepción (siempre permiten MR aunque sean Trenes)
     const localesExcepcion = ['Alma Cerrito', 'Tostado Trenes'];
 
-    // Query: todas las facturas en el rango (excluyendo NC y bloqueadas)
-    const { data: facturas, error } = await supabase
-      .from('facturas')
-      .select('mr_estado, tipo, proveedor, local, categoria')
-      .gte('fecha', desde)
-      .lte('fecha', hasta);
+    // Query: todas las facturas en el rango (paginado para superar límite de 1000)
+    let allFacturas = [];
+    let from = 0;
+    const pageSize = 1000;
+    let hasMore = true;
 
-    if (error) throw error;
+    while (hasMore) {
+      const { data: pageData, error: pageError } = await supabase
+        .from('facturas')
+        .select('mr_estado, tipo, proveedor, local, categoria')
+        .gte('fecha', desde)
+        .lte('fecha', hasta)
+        .range(from, from + pageSize - 1);
+
+      if (pageError) throw pageError;
+
+      if (pageData && pageData.length > 0) {
+        allFacturas = allFacturas.concat(pageData);
+        from += pageSize;
+        hasMore = pageData.length === pageSize;
+      } else {
+        hasMore = false;
+      }
+    }
+
+    const facturas = allFacturas;
 
     // Obtener categorías de locales
     const localesUnicos = [...new Set(facturas.filter(f => f.local).map(f => f.local))];
