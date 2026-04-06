@@ -370,7 +370,20 @@ app.get('/api/facturas', async (req, res) => {
       });
     } else {
       // Modo legacy: traer TODAS las facturas (paginación interna)
-      let allFacturas = facturasConCategoria;
+      // Primero cargar TODAS las categorías de locales para evitar 'Sin categoría'
+      const { data: todosLocales } = await supabase
+        .from('locales')
+        .select('local, categoria');
+      const fullCategoriaMap = {};
+      todosLocales?.forEach(l => { fullCategoriaMap[l.local] = l.categoria; });
+
+      // Reasignar categorías de la primera página con el mapa completo
+      let allFacturas = facturas.map(f => ({
+        ...f,
+        locales: {
+          categoria: f.local ? fullCategoriaMap[f.local] || null : null
+        }
+      }));
       let hasMore = facturas.length === pageSize;
       let currentOffset = offset + pageSize;
 
@@ -389,7 +402,6 @@ app.get('/api/facturas', async (req, res) => {
           .order('id', { ascending: false })
           .range(currentOffset, currentOffset + pageSize - 1);
 
-        // Aplicar mismo filtro de rol
         if (rol === 'operacion') {
           const { data: userLocales } = await supabase
             .from('usuario_locales')
@@ -408,7 +420,7 @@ app.get('/api/facturas', async (req, res) => {
           const nextConCategoria = nextData.map(f => ({
             ...f,
             locales: {
-              categoria: f.local ? localCategoriaMap[f.local] || null : null
+              categoria: f.local ? fullCategoriaMap[f.local] || null : null
             }
           }));
           allFacturas = allFacturas.concat(nextConCategoria);
