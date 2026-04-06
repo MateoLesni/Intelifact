@@ -271,12 +271,9 @@ app.get('/api/facturas', async (req, res) => {
 
     // Filtros de columnas (búsqueda parcial)
     if (filtroId) {
-      // Supabase no soporta cast id::text, filtrar por igualdad si es número
-      const idNum = parseInt(filtroId);
-      if (!isNaN(idNum)) {
-        countQuery = countQuery.eq('id', idNum);
-        dataQuery = dataQuery.eq('id', idNum);
-      }
+      // Usar filter con cast a text para búsqueda parcial de ID
+      countQuery = countQuery.filter('id::text', 'like', `%${filtroId}%`);
+      dataQuery = dataQuery.filter('id::text', 'like', `%${filtroId}%`);
     }
     if (filtroFecha) {
       // El usuario escribe en formato DD/MM/YYYY, convertir a YYYY-MM-DD para la DB
@@ -287,9 +284,9 @@ app.get('/api/facturas', async (req, res) => {
           fechaBusqueda = `${partes[2]}-${partes[1]}-${partes[0]}`;
         }
       }
-      // Usar ilike sobre el campo fecha (Supabase lo soporta en campos date como texto)
-      countQuery = countQuery.ilike('fecha', `%${fechaBusqueda}%`);
-      dataQuery = dataQuery.ilike('fecha', `%${fechaBusqueda}%`);
+      // Usar filter con cast a text para búsqueda parcial de fecha
+      countQuery = countQuery.filter('fecha::text', 'like', `%${fechaBusqueda}%`);
+      dataQuery = dataQuery.filter('fecha::text', 'like', `%${fechaBusqueda}%`);
     }
     if (filtroLocal) {
       countQuery = countQuery.ilike('local', `%${filtroLocal}%`);

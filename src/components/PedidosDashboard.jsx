@@ -1120,9 +1120,9 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
         </div>
       </div>
 
-      {facturas.length === 0 ? (
+      {loading ? (
         <div className="empty-state">
-          <p>No hay facturas disponibles</p>
+          <p>Cargando facturas...</p>
         </div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
@@ -1275,7 +1275,13 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
               </tr>
             </thead>
             <tbody>
-              {facturasFiltradas
+              {facturasFiltradas.length === 0 ? (
+                <tr>
+                  <td colSpan="20" style={{ textAlign: 'center', padding: '2rem', color: '#999' }}>
+                    No se encontraron facturas con los filtros aplicados
+                  </td>
+                </tr>
+              ) : facturasFiltradas
                 .map((factura, index) => {
                 const mrBloqueado = esMRBloqueado(factura);
                 return (
@@ -1551,7 +1557,8 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                     </div>
                   </td>
                 </tr>
-              )})}
+              )})
+              }
             </tbody>
           </table>
 
