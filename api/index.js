@@ -273,6 +273,77 @@ app.get('/api/facturas', async (req, res) => {
   }
 });
 
+// Contadores de MR (calculados directo en la base para precisión)
+app.get('/api/facturas/contadores', async (req, res) => {
+  try {
+    const { desde, hasta } = req.query;
+
+    if (!desde || !hasta) {
+      return res.status(400).json({ error: 'Se requieren parámetros desde y hasta' });
+    }
+
+    // Proveedores bloqueados (misma lista que el frontend)
+    const proveedoresBloqueados = [
+      'sgogo', 'panaderia gourmet (sgo del estero)', 'sgopan', 'celasan',
+      'centralpan', 'deposito centralpan', 'deposito central',
+      'deposito bimbo', 'deposito kioscos', 'deposito ng', 'planta santiago gourmet'
+    ];
+
+    // Locales excepción (siempre permiten MR aunque sean Trenes)
+    const localesExcepcion = ['Alma Cerrito', 'Tostado Trenes'];
+
+    // Query: todas las facturas en el rango (excluyendo NC y bloqueadas)
+    const { data: facturas, error } = await supabase
+      .from('facturas')
+      .select('mr_estado, tipo, proveedor, local, categoria')
+      .gte('fecha', desde)
+      .lte('fecha', hasta);
+
+    if (error) throw error;
+
+    // Obtener categorías de locales
+    const localesUnicos = [...new Set(facturas.filter(f => f.local).map(f => f.local))];
+    const { data: localesData } = await supabase
+      .from('locales')
+      .select('local, categoria')
+      .in('local', localesUnicos);
+
+    const localCategoriaMap = {};
+    localesData?.forEach(l => { localCategoriaMap[l.local] = l.categoria; });
+
+    // Calcular contadores con la misma lógica que el frontend
+    let conMR = 0;
+    let sinMR = 0;
+
+    facturas.forEach(f => {
+      // Verificar si es bloqueada (misma lógica que esMRBloqueado en frontend)
+      if (f.tipo === 'nota_credito') return; // NC no cuenta
+
+      const categoria = localCategoriaMap[f.local] || f.categoria;
+      const esExcepcion = localesExcepcion.includes(f.local);
+      const esBloqueada = !esExcepcion && categoria === 'Trenes' &&
+        proveedoresBloqueados.includes(f.proveedor?.toLowerCase());
+
+      if (esBloqueada) return; // Bloqueada no cuenta
+
+      if (f.mr_estado === true) {
+        conMR++;
+      } else {
+        sinMR++;
+      }
+    });
+
+    res.json({
+      todas: conMR + sinMR,
+      conMR,
+      sinMR
+    });
+  } catch (error) {
+    console.error('Error en contadores:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Crear factura con imágenes
 app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
   try {

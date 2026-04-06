@@ -44,6 +44,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
   const [facturas, setFacturas] = useState([]);
   const [facturasFiltradas, setFacturasFiltradas] = useState([]);
   const [facturasBase, setFacturasBase] = useState([]); // Facturas filtradas SIN filtro MR (para contadores)
+  const [contadoresMR, setContadoresMR] = useState({ todas: 0, conMR: 0, sinMR: 0 });
   const [locales, setLocales] = useState([]);
   const [proveedores, setProveedores] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -112,12 +113,14 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
 
   useEffect(() => {
     loadFacturas();
+    loadContadores();
     loadAllLocales();
     loadProveedores();
 
     // Auto-refresh cada 5 minutos para mantener datos actualizados
     const intervalId = setInterval(() => {
       loadFacturas();
+      loadContadores();
     }, 300000); // 5 minutos = 300000ms
 
     // Limpiar intervalo al desmontar componente
@@ -138,6 +141,27 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
   useEffect(() => {
     localStorage.setItem(`rangoFechas_${user.id}`, JSON.stringify(rangoFechas));
   }, [rangoFechas, user.id]);
+
+  // Cargar contadores de MR desde el backend (fuente de verdad)
+  const loadContadores = async () => {
+    if (!rangoFechas.desde || !rangoFechas.hasta) return;
+
+    const hasta = (rangoFechas.preset === '30' || rangoFechas.preset === '60')
+      ? new Date().toISOString().split('T')[0]
+      : rangoFechas.hasta;
+
+    try {
+      const response = await fetch(`${API_URL}/facturas/contadores?desde=${rangoFechas.desde}&hasta=${hasta}`);
+      const data = await response.json();
+      setContadoresMR(data);
+    } catch (error) {
+      console.error('Error al cargar contadores:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadContadores();
+  }, [rangoFechas]);
 
   useEffect(() => {
     // Resetear a página 1 cuando cambien los filtros
@@ -309,6 +333,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
         alert('Factura actualizada correctamente');
         setEditingId(null);
         loadFacturas();
+        loadContadores();
       } else {
         const error = await response.json();
         alert('Error: ' + error.error);
@@ -329,6 +354,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
       if (response.ok) {
         alert('Factura eliminada correctamente');
         loadFacturas();
+        loadContadores();
       } else {
         const error = await response.json();
         alert('Error: ' + error.error);
@@ -363,6 +389,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
         setShowMRModal(null);
         setMrNumero('');
         loadFacturas();
+        loadContadores();
       } else {
         const error = await response.json();
         alert('Error: ' + error.error);
@@ -1090,7 +1117,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                 transition: 'all 0.2s'
               }}
             >
-              Todas ({facturasBase.filter(f => !esMRBloqueado(f)).length})
+              Todas ({contadoresMR.todas})
             </button>
             <button
               onClick={() => setFiltroMR('con_mr')}
@@ -1106,7 +1133,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                 transition: 'all 0.2s'
               }}
             >
-              Con MR ({facturasBase.filter(f => f.mr_estado && !esMRBloqueado(f)).length})
+              Con MR ({contadoresMR.conMR})
             </button>
             <button
               onClick={() => setFiltroMR('sin_mr')}
@@ -1122,7 +1149,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                 transition: 'all 0.2s'
               }}
             >
-              Sin MR ({facturasBase.filter(f => !f.mr_estado && !esMRBloqueado(f)).length})
+              Sin MR ({contadoresMR.sinMR})
             </button>
           </div>
         </div>
