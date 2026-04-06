@@ -190,8 +190,10 @@ app.get('/api/facturas', async (req, res) => {
             filtroNroOc, filtroMrNumero, filtroFechaMR, filtroFechaCarga,
             localesSeleccionados, proveedoresSeleccionados } = req.query;
 
+    // Si no se envía page, usar el modo legacy (traer todo como array directo)
+    const modoPaginado = !!page;
     const pageNum = parseInt(page) || 1;
-    const pageSize = parseInt(limit) || 500;
+    const pageSize = modoPaginado ? (parseInt(limit) || 500) : 1000;
     const offset = (pageNum - 1) * pageSize;
 
     // Base query para contar total
@@ -356,13 +358,69 @@ app.get('/api/facturas', async (req, res) => {
       }
     }));
 
-    res.json({
-      data: facturasConCategoria,
-      total,
-      page: pageNum,
-      pageSize,
-      totalPages: Math.ceil(total / pageSize)
-    });
+    // Modo paginado: devolver objeto con metadata
+    // Modo legacy (sin page): devolver array directo para compatibilidad
+    if (modoPaginado) {
+      res.json({
+        data: facturasConCategoria,
+        total,
+        page: pageNum,
+        pageSize,
+        totalPages: Math.ceil(total / pageSize)
+      });
+    } else {
+      // Modo legacy: traer TODAS las facturas (paginación interna)
+      let allFacturas = facturasConCategoria;
+      let hasMore = facturas.length === pageSize;
+      let currentOffset = offset + pageSize;
+
+      while (hasMore) {
+        let nextQuery = supabase
+          .from('facturas')
+          .select(`
+            *,
+            factura_imagenes(imagen_url, renombre, nombre_fisico),
+            usuarios(nombre),
+            locales!facturas_local_fkey(categoria),
+            created_at,
+            fecha_mr,
+            fecha_mr_timestamp
+          `)
+          .order('id', { ascending: false })
+          .range(currentOffset, currentOffset + pageSize - 1);
+
+        // Aplicar mismo filtro de rol
+        if (rol === 'operacion') {
+          const { data: userLocales } = await supabase
+            .from('usuario_locales')
+            .select('local')
+            .eq('usuario_id', userId);
+          const locales = userLocales?.map(ul => ul.local) || [];
+          nextQuery = nextQuery.in('local', locales);
+        } else if (rol === 'proveedores' || (rol === 'proveedores_viewer' && vistaCompleta !== 'true')) {
+          nextQuery = nextQuery.or('mr_estado.eq.true,tipo.eq.nota_credito');
+        }
+
+        const { data: nextData, error: nextError } = await nextQuery;
+        if (nextError) throw nextError;
+
+        if (nextData && nextData.length > 0) {
+          const nextConCategoria = nextData.map(f => ({
+            ...f,
+            locales: {
+              categoria: f.local ? localCategoriaMap[f.local] || null : null
+            }
+          }));
+          allFacturas = allFacturas.concat(nextConCategoria);
+          currentOffset += pageSize;
+          hasMore = nextData.length === pageSize;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      res.json(allFacturas);
+    }
   } catch (error) {
     console.error('Error en GET /api/facturas:', error);
     res.status(500).json({ error: error.message });
