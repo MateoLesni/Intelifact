@@ -271,24 +271,25 @@ app.get('/api/facturas', async (req, res) => {
 
     // Filtros de columnas (búsqueda parcial)
     if (filtroId) {
-      countQuery = countQuery.like('id::text', `%${filtroId}%`);
-      dataQuery = dataQuery.like('id::text', `%${filtroId}%`);
+      // Supabase no soporta cast id::text, filtrar por igualdad si es número
+      const idNum = parseInt(filtroId);
+      if (!isNaN(idNum)) {
+        countQuery = countQuery.eq('id', idNum);
+        dataQuery = dataQuery.eq('id', idNum);
+      }
     }
     if (filtroFecha) {
       // El usuario escribe en formato DD/MM/YYYY, convertir a YYYY-MM-DD para la DB
-      // Si contiene '/', intentar convertir DD/MM/YYYY → YYYY-MM-DD
       let fechaBusqueda = filtroFecha;
       if (filtroFecha.includes('/')) {
         const partes = filtroFecha.split('/');
         if (partes.length === 3) {
           fechaBusqueda = `${partes[2]}-${partes[1]}-${partes[0]}`;
-        } else if (partes.length === 2) {
-          // Parcial: DD/MM → -MM-DD
-          fechaBusqueda = `-${partes[1]}-${partes[0]}`;
         }
       }
-      countQuery = countQuery.like('fecha::text', `%${fechaBusqueda}%`);
-      dataQuery = dataQuery.like('fecha::text', `%${fechaBusqueda}%`);
+      // Usar ilike sobre el campo fecha (Supabase lo soporta en campos date como texto)
+      countQuery = countQuery.ilike('fecha', `%${fechaBusqueda}%`);
+      dataQuery = dataQuery.ilike('fecha', `%${fechaBusqueda}%`);
     }
     if (filtroLocal) {
       countQuery = countQuery.ilike('local', `%${filtroLocal}%`);
@@ -313,14 +314,18 @@ app.get('/api/facturas', async (req, res) => {
 
     // Filtro por fecha de MR exacta
     if (filtroFechaMR) {
-      countQuery = countQuery.gte('fecha_mr', `${filtroFechaMR}T00:00:00`).lte('fecha_mr', `${filtroFechaMR}T23:59:59`);
-      dataQuery = dataQuery.gte('fecha_mr', `${filtroFechaMR}T00:00:00`).lte('fecha_mr', `${filtroFechaMR}T23:59:59`);
+      countQuery = countQuery.gte('fecha_mr', `${filtroFechaMR}T00:00:00`);
+      countQuery = countQuery.lte('fecha_mr', `${filtroFechaMR}T23:59:59`);
+      dataQuery = dataQuery.gte('fecha_mr', `${filtroFechaMR}T00:00:00`);
+      dataQuery = dataQuery.lte('fecha_mr', `${filtroFechaMR}T23:59:59`);
     }
 
     // Filtro por fecha de carga exacta
     if (filtroFechaCarga) {
-      countQuery = countQuery.gte('created_at', `${filtroFechaCarga}T00:00:00`).lte('created_at', `${filtroFechaCarga}T23:59:59`);
-      dataQuery = dataQuery.gte('created_at', `${filtroFechaCarga}T00:00:00`).lte('created_at', `${filtroFechaCarga}T23:59:59`);
+      countQuery = countQuery.gte('created_at', `${filtroFechaCarga}T00:00:00`);
+      countQuery = countQuery.lte('created_at', `${filtroFechaCarga}T23:59:59`);
+      dataQuery = dataQuery.gte('created_at', `${filtroFechaCarga}T00:00:00`);
+      dataQuery = dataQuery.lte('created_at', `${filtroFechaCarga}T23:59:59`);
     }
 
     // Ejecutar ambas queries en paralelo

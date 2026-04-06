@@ -161,12 +161,25 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
       const response = await fetch(`${API_URL}/facturas?${params.toString()}`);
       const result = await response.json();
 
+      if (result.error) {
+        console.error('Error del backend:', result.error);
+        setFacturas([]);
+        setFacturasFiltradas([]);
+        setTotalRegistros(0);
+        setTotalPaginas(1);
+        return;
+      }
+
       setFacturas(result.data || []);
       setFacturasFiltradas(result.data || []);
       setTotalRegistros(result.total || 0);
       setTotalPaginas(result.totalPages || 1);
     } catch (error) {
       console.error('Error al cargar facturas:', error);
+      setFacturas([]);
+      setFacturasFiltradas([]);
+      setTotalRegistros(0);
+      setTotalPaginas(1);
     } finally {
       setLoading(false);
     }
