@@ -638,23 +638,30 @@ app.post('/api/facturas', upload.array('imagenes', 10), async (req, res) => {
 
         console.log(`✅ URL pública: ${publicUrl}`);
 
-        // ======= GENERAR RENOMBRE ÚNICO =======
-        // Si hay múltiples imágenes con el mismo nombre original, agregar sufijo _2, _3, etc.
-        let renombreUnico = sanitizedName;
+        // ======= GENERAR RENOMBRE =======
+        const extension = path.extname(sanitizedName) || '.jpg';
+        let renombreUnico;
 
-        if (nombresUsados.has(sanitizedName)) {
-          const contador = nombresUsados.get(sanitizedName) + 1;
-          nombresUsados.set(sanitizedName, contador);
-
-          // Separar nombre y extensión
-          const lastDot = sanitizedName.lastIndexOf('.');
-          const nombreSinExt = lastDot > -1 ? sanitizedName.substring(0, lastDot) : sanitizedName;
-          const extension = lastDot > -1 ? sanitizedName.substring(lastDot) : '';
-
-          renombreUnico = `${nombreSinExt}_${contador}${extension}`;
-          console.log(`⚠️  Nombre duplicado detectado, renombrando a: ${renombreUnico}`);
+        if (tipo === 'nota_credito') {
+          // NC: formato NC{nro_factura}-Local{local}-Proveedor{proveedor}
+          renombreUnico = `NC${nro_factura}-Local${local}-Proveedor${proveedor}${index > 0 ? ` ${index + 1}` : ''}${extension}`;
         } else {
-          nombresUsados.set(sanitizedName, 1);
+          // Facturas normales: nombre original con sufijo si hay duplicados
+          renombreUnico = sanitizedName;
+
+          if (nombresUsados.has(sanitizedName)) {
+            const contador = nombresUsados.get(sanitizedName) + 1;
+            nombresUsados.set(sanitizedName, contador);
+
+            const lastDot = sanitizedName.lastIndexOf('.');
+            const nombreSinExt = lastDot > -1 ? sanitizedName.substring(0, lastDot) : sanitizedName;
+            const ext = lastDot > -1 ? sanitizedName.substring(lastDot) : '';
+
+            renombreUnico = `${nombreSinExt}_${contador}${ext}`;
+            console.log(`⚠️  Nombre duplicado detectado, renombrando a: ${renombreUnico}`);
+          } else {
+            nombresUsados.set(sanitizedName, 1);
+          }
         }
 
         // ======= INSERTAR EN BASE DE DATOS CON NUEVAS COLUMNAS =======
