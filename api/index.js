@@ -352,7 +352,7 @@ app.get('/api/facturas/contadores', async (req, res) => {
     });
 
     res.json({
-      todas: conMR + sinMR,
+      todas: facturas.length,
       conMR,
       sinMR
     });
