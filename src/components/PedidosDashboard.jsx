@@ -43,7 +43,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
   }));
   const [facturas, setFacturas] = useState([]);
   const [facturasFiltradas, setFacturasFiltradas] = useState([]);
-  const [facturasBase, setFacturasBase] = useState([]); // Facturas filtradas SIN filtro MR (para contadores)
+
   const [contadoresMR, setContadoresMR] = useState({ todas: 0, conMR: 0, sinMR: 0 });
   const [locales, setLocales] = useState([]);
   const [proveedores, setProveedores] = useState([]);
@@ -107,51 +107,77 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
   });
   const [showRangoFechasModal, setShowRangoFechasModal] = useState(false);
 
-  // Paginación
+  // Paginación server-side
   const [paginaActual, setPaginaActual] = useState(1);
   const registrosPorPagina = 500;
+  const [totalRegistros, setTotalRegistros] = useState(0);
+  const [totalPaginas, setTotalPaginas] = useState(1);
 
-  useEffect(() => {
-    loadFacturas();
-    loadContadores();
-    loadAllLocales();
-    loadProveedores();
+  // Calcular "hasta" real considerando presets
+  const getHastaReal = () => {
+    if (rangoFechas.preset === '30' || rangoFechas.preset === '60') {
+      return new Date().toISOString().split('T')[0];
+    }
+    return rangoFechas.hasta;
+  };
 
-    // Auto-refresh cada 5 minutos para mantener datos actualizados
-    const intervalId = setInterval(() => {
-      loadFacturas();
-      loadContadores();
-    }, 300000); // 5 minutos = 300000ms
+  // Cargar facturas desde el backend con filtros server-side
+  const loadFacturas = async (pageOverride) => {
+    try {
+      const page = pageOverride || paginaActual;
+      const params = new URLSearchParams({
+        rol: user.rol,
+        userId: user.id,
+        page: page.toString(),
+        limit: registrosPorPagina.toString()
+      });
 
-    // Limpiar intervalo al desmontar componente
-    return () => clearInterval(intervalId);
-  }, []);
+      if (vistaCompleta) params.set('vistaCompleta', 'true');
 
-  // Guardar filtro de locales en localStorage cuando cambie
-  useEffect(() => {
-    localStorage.setItem(`filtroLocales_${user.id}`, JSON.stringify(localesSeleccionados));
-  }, [localesSeleccionados, user.id]);
+      // Rango de fechas
+      if (rangoFechas.desde) params.set('desde', rangoFechas.desde);
+      if (rangoFechas.hasta) params.set('hasta', getHastaReal());
 
-  // Guardar filtro de proveedores en localStorage cuando cambie
-  useEffect(() => {
-    localStorage.setItem(`filtroProveedores_${user.id}`, JSON.stringify(proveedoresSeleccionados));
-  }, [proveedoresSeleccionados, user.id]);
+      // Filtro MR
+      if (filtroMR !== 'todos') params.set('filtroMR', filtroMR);
 
-  // Guardar rango de fechas en localStorage cuando cambie
-  useEffect(() => {
-    localStorage.setItem(`rangoFechas_${user.id}`, JSON.stringify(rangoFechas));
-  }, [rangoFechas, user.id]);
+      // Filtros persistentes (multiselección)
+      if (localesSeleccionados.length > 0) params.set('localesSeleccionados', JSON.stringify(localesSeleccionados));
+      if (proveedoresSeleccionados.length > 0) params.set('proveedoresSeleccionados', JSON.stringify(proveedoresSeleccionados));
+
+      // Filtros de columnas
+      if (filtros.id.trim()) params.set('filtroId', filtros.id.trim());
+      if (filtros.fecha.trim()) params.set('filtroFecha', filtros.fecha.trim());
+      if (filtros.local.trim()) params.set('filtroLocal', filtros.local.trim());
+      if (filtros.nro_factura.trim()) params.set('filtroNroFactura', filtros.nro_factura.trim());
+      if (filtros.nro_oc.trim()) params.set('filtroNroOc', filtros.nro_oc.trim());
+      if (filtros.proveedor.trim()) params.set('filtroProveedor', filtros.proveedor.trim());
+      if (filtros.mr_numero.trim()) params.set('filtroMrNumero', filtros.mr_numero.trim());
+
+      // Filtros de fecha exacta
+      if (filtroFechaMR.trim()) params.set('filtroFechaMR', filtroFechaMR.trim());
+      if (filtroFechaCarga.trim()) params.set('filtroFechaCarga', filtroFechaCarga.trim());
+
+      const response = await fetch(`${API_URL}/facturas?${params.toString()}`);
+      const result = await response.json();
+
+      setFacturas(result.data || []);
+      setFacturasFiltradas(result.data || []);
+      setTotalRegistros(result.total || 0);
+      setTotalPaginas(result.totalPages || 1);
+    } catch (error) {
+      console.error('Error al cargar facturas:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Cargar contadores de MR desde el backend (fuente de verdad)
   const loadContadores = async () => {
     if (!rangoFechas.desde || !rangoFechas.hasta) return;
 
-    const hasta = (rangoFechas.preset === '30' || rangoFechas.preset === '60')
-      ? new Date().toISOString().split('T')[0]
-      : rangoFechas.hasta;
-
     try {
-      const response = await fetch(`${API_URL}/facturas/contadores?desde=${rangoFechas.desde}&hasta=${hasta}`);
+      const response = await fetch(`${API_URL}/facturas/contadores?desde=${rangoFechas.desde}&hasta=${getHastaReal()}`);
       const data = await response.json();
       setContadoresMR(data);
     } catch (error) {
@@ -159,136 +185,64 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
     }
   };
 
+  // Carga inicial
+  useEffect(() => {
+    loadFacturas(1);
+    loadContadores();
+    loadAllLocales();
+    loadProveedores();
+
+    // Auto-refresh cada 5 minutos
+    const intervalId = setInterval(() => {
+      loadFacturas();
+      loadContadores();
+    }, 300000);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
+  // Guardar filtros persistentes en localStorage
+  useEffect(() => {
+    localStorage.setItem(`filtroLocales_${user.id}`, JSON.stringify(localesSeleccionados));
+  }, [localesSeleccionados, user.id]);
+
+  useEffect(() => {
+    localStorage.setItem(`filtroProveedores_${user.id}`, JSON.stringify(proveedoresSeleccionados));
+  }, [proveedoresSeleccionados, user.id]);
+
+  useEffect(() => {
+    localStorage.setItem(`rangoFechas_${user.id}`, JSON.stringify(rangoFechas));
+  }, [rangoFechas, user.id]);
+
+  // Recargar contadores cuando cambie el rango de fechas
   useEffect(() => {
     loadContadores();
   }, [rangoFechas]);
 
+  // Debounce timer para filtros de columnas (evita llamar al backend por cada tecla)
+  const [debounceTimer, setDebounceTimer] = useState(null);
+
+  // Recargar datos cuando cambian los filtros (con debounce para texto)
   useEffect(() => {
-    // Resetear a página 1 cuando cambien los filtros
+    if (debounceTimer) clearTimeout(debounceTimer);
+    const timer = setTimeout(() => {
+      setPaginaActual(1);
+      loadFacturas(1);
+    }, 400); // 400ms de espera después de la última tecla
+    setDebounceTimer(timer);
+    return () => clearTimeout(timer);
+  }, [filtros, filtroFechaMR, filtroFechaCarga]);
+
+  // Recargar datos inmediatamente cuando cambian filtros no-texto
+  useEffect(() => {
     setPaginaActual(1);
-  }, [filtros, filtroMR, filtroFechaMR, filtroFechaCarga, localesSeleccionados, proveedoresSeleccionados, rangoFechas]);
+    loadFacturas(1);
+  }, [filtroMR, localesSeleccionados, proveedoresSeleccionados, rangoFechas]);
 
+  // Recargar datos cuando cambia la página
   useEffect(() => {
-    // Aplicar filtros
-    let filtered = facturas;
-
-    // Filtro de rango de fechas
-    if (rangoFechas.desde && rangoFechas.hasta) {
-      filtered = filtered.filter(f => {
-        // Para proveedores_viewer: usar fecha_mr (fecha en que se generó el MR)
-        // Para el resto: usar fecha de factura (la que eligió el operador al cargar)
-        let fechaAFiltrar;
-
-        if (user.rol === 'proveedores_viewer') {
-          // Si tiene MR, usar fecha_mr; si no tiene MR, no mostrar (ya se filtra en backend)
-          fechaAFiltrar = f.fecha_mr ? new Date(f.fecha_mr) : null;
-          if (!fechaAFiltrar) return false; // Excluir facturas sin fecha_mr
-        } else {
-          fechaAFiltrar = new Date(f.fecha + 'T00:00:00');  // Fecha de factura
-        }
-
-        const desde = new Date(rangoFechas.desde);
-        // Si el preset es 30 o 60 días, usar SIEMPRE la fecha actual como "hasta"
-        // Esto evita que facturas recién cargadas no aparezcan por filtro desactualizado
-        const hasta = (rangoFechas.preset === '30' || rangoFechas.preset === '60')
-          ? new Date()  // HOY (en tiempo real)
-          : new Date(rangoFechas.hasta);  // Fecha guardada (solo para rangos personalizados)
-
-        // Ajustar horas para comparar solo fechas
-        fechaAFiltrar.setHours(0, 0, 0, 0);
-        desde.setHours(0, 0, 0, 0);
-        hasta.setHours(23, 59, 59, 999);
-        return fechaAFiltrar >= desde && fechaAFiltrar <= hasta;
-      });
-    }
-
-    // Filtro de locales seleccionados (para usuarios pedidos, pedidos_admin, compras y proveedores_viewer)
-    if ((user.rol === 'pedidos' || user.rol === 'pedidos_admin' || user.rol === 'compras' || user.rol === 'proveedores_viewer') && localesSeleccionados.length > 0) {
-      filtered = filtered.filter(f => localesSeleccionados.includes(f.local));
-    }
-
-    // Filtro de proveedores seleccionados
-    if ((user.rol === 'pedidos' || user.rol === 'pedidos_admin' || user.rol === 'compras' || user.rol === 'proveedores_viewer') && proveedoresSeleccionados.length > 0) {
-      filtered = filtered.filter(f => proveedoresSeleccionados.includes(f.proveedor));
-    }
-
-    // Filtro por fecha de MR (calendario)
-    if (filtroFechaMR.trim()) {
-      filtered = filtered.filter(f => {
-        if (!f.fecha_mr) return false; // Solo facturas con MR
-        // Comparar solo la fecha (YYYY-MM-DD)
-        const fechaMRFactura = f.fecha_mr.split('T')[0]; // Extraer solo YYYY-MM-DD
-        return fechaMRFactura === filtroFechaMR;
-      });
-    }
-
-    // Filtro por fecha de carga (calendario)
-    if (filtroFechaCarga.trim()) {
-      filtered = filtered.filter(f => {
-        if (!f.created_at) return false;
-        // Comparar solo la fecha (YYYY-MM-DD)
-        const fechaCargaFactura = f.created_at.split('T')[0]; // Extraer solo YYYY-MM-DD
-        return fechaCargaFactura === filtroFechaCarga;
-      });
-    }
-
-    // Filtros de columnas
-    Object.keys(filtros).forEach(key => {
-      if (filtros[key].trim()) {
-        filtered = filtered.filter(factura => {
-          let value;
-          if (key === 'id') {
-            value = factura[key]?.toString();
-          } else if (key === 'fecha') {
-            // Formatear fecha manualmente sin usar new Date() para evitar problemas de timezone
-            const [year, month, day] = factura[key].split('-');
-            value = `${day}/${month}/${year}`;
-          } else {
-            value = factura[key];
-          }
-          return value?.toLowerCase().includes(filtros[key].toLowerCase());
-        });
-      }
-    });
-
-    // Guardar facturas base (antes del filtro MR) para contadores consistentes
-    setFacturasBase(filtered);
-
-    // Aplicar filtro de MR al final (excluir facturas con MR bloqueado)
-    if (filtroMR === 'con_mr') {
-      filtered = filtered.filter(f => f.mr_estado === true && !esMRBloqueado(f));
-    } else if (filtroMR === 'sin_mr') {
-      filtered = filtered.filter(f => !f.mr_estado && !esMRBloqueado(f));
-    }
-
-    setFacturasFiltradas(filtered);
-  }, [filtros, filtroMR, filtroFechaMR, filtroFechaCarga, facturas, localesSeleccionados, proveedoresSeleccionados, rangoFechas, user.rol]);
-
-  const loadFacturas = async () => {
-    try {
-      // Si vistaCompleta es true, pasar parámetro adicional al backend
-      const url = vistaCompleta
-        ? `${API_URL}/facturas?rol=${user.rol}&userId=${user.id}&vistaCompleta=true`
-        : `${API_URL}/facturas?rol=${user.rol}&userId=${user.id}`;
-      const response = await fetch(url);
-      const data = await response.json();
-
-      // WARNING: Detectar si los datos pueden estar truncados
-      if (data.length === 1000) {
-        console.warn('⚠️ ADVERTENCIA: Se obtuvieron exactamente 1000 registros. Los datos pueden estar truncados.');
-        console.warn('Si este número no cambia, verifica que el backend tenga .limit(10000) en la query.');
-      }
-
-      // Ordenar por ID descendente (más recientes primero)
-      const sortedData = data.sort((a, b) => b.id - a.id);
-      setFacturas(sortedData);
-      setFacturasFiltradas(sortedData);
-    } catch (error) {
-      console.error('Error al cargar facturas:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    loadFacturas();
+  }, [paginaActual]);
 
   const loadAllLocales = async () => {
     try {
@@ -546,16 +500,14 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
     });
   };
 
-  // Obtener lista única de locales de las facturas
-  const localesUnicos = [...new Set(facturas.map(f => f.local).filter(l => l))].sort();
+  // Obtener lista de locales y proveedores desde los datos cargados del backend (no de la página actual)
+  const localesUnicos = locales.map(l => l.local).sort();
+  const proveedoresUnicos = proveedores.map(p => p.proveedor).sort();
 
   // Filtrar locales por búsqueda
   const localesFiltrados = busquedaLocal.trim()
     ? localesUnicos.filter(l => l.toLowerCase().includes(busquedaLocal.toLowerCase()))
     : localesUnicos;
-
-  // Obtener lista única de proveedores de las facturas
-  const proveedoresUnicos = [...new Set(facturas.map(f => f.proveedor).filter(p => p))].sort();
 
   // Filtrar proveedores por búsqueda
   const proveedoresFiltrados = busquedaProveedor.trim()
@@ -1311,7 +1263,6 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
             </thead>
             <tbody>
               {facturasFiltradas
-                .slice((paginaActual - 1) * registrosPorPagina, paginaActual * registrosPorPagina)
                 .map((factura, index) => {
                 const mrBloqueado = esMRBloqueado(factura);
                 return (
@@ -1624,7 +1575,6 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
 
               {/* Números de página */}
               {(() => {
-                const totalPaginas = Math.ceil(facturasFiltradas.length / registrosPorPagina);
                 const botonesPaginas = [];
 
                 // Mostrar máximo 7 botones de página
@@ -1666,18 +1616,17 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
               {/* Botón siguiente */}
               <button
                 onClick={() => {
-                  const totalPaginas = Math.ceil(facturasFiltradas.length / registrosPorPagina);
                   setPaginaActual(prev => Math.min(totalPaginas, prev + 1));
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                disabled={paginaActual >= Math.ceil(facturasFiltradas.length / registrosPorPagina)}
+                disabled={paginaActual >= totalPaginas}
                 style={{
                   padding: '0.5rem 1rem',
                   border: '1px solid #ddd',
                   borderRadius: '4px',
-                  backgroundColor: paginaActual >= Math.ceil(facturasFiltradas.length / registrosPorPagina) ? '#f5f5f5' : '#fff',
-                  color: paginaActual >= Math.ceil(facturasFiltradas.length / registrosPorPagina) ? '#999' : '#333',
-                  cursor: paginaActual >= Math.ceil(facturasFiltradas.length / registrosPorPagina) ? 'not-allowed' : 'pointer',
+                  backgroundColor: paginaActual >= totalPaginas ? '#f5f5f5' : '#fff',
+                  color: paginaActual >= totalPaginas ? '#999' : '#333',
+                  cursor: paginaActual >= totalPaginas ? 'not-allowed' : 'pointer',
                   fontWeight: '500'
                 }}
               >
@@ -1690,8 +1639,8 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
                 color: '#666',
                 fontSize: '0.9rem'
               }}>
-                Página {paginaActual} de {Math.ceil(facturasFiltradas.length / registrosPorPagina)}
-                ({facturasFiltradas.length} facturas)
+                Página {paginaActual} de {totalPaginas}
+                ({totalRegistros} facturas)
               </span>
             </div>
           )}

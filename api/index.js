@@ -185,79 +185,168 @@ app.post('/api/auth/login', async (req, res) => {
 // Obtener facturas según rol
 app.get('/api/facturas', async (req, res) => {
   try {
-    const { rol, userId, vistaCompleta } = req.query;
+    const { rol, userId, vistaCompleta, page, limit, desde, hasta, filtroMR,
+            filtroLocal, filtroProveedor, filtroId, filtroFecha, filtroNroFactura,
+            filtroNroOc, filtroMrNumero, filtroFechaMR, filtroFechaCarga,
+            localesSeleccionados, proveedoresSeleccionados } = req.query;
 
-    // IMPORTANTE: Supabase limita a 1000 registros por query
-    // Usamos paginación para obtener TODOS los registros
-    let allFacturas = [];
-    let from = 0;
-    const pageSize = 1000;
-    let hasMore = true;
+    const pageNum = parseInt(page) || 1;
+    const pageSize = parseInt(limit) || 500;
+    const offset = (pageNum - 1) * pageSize;
 
-    while (hasMore) {
-      let query = supabase
-        .from('facturas')
-        .select(`
-          *,
-          factura_imagenes(imagen_url, renombre, nombre_fisico),
-          usuarios(nombre),
-          locales!facturas_local_fkey(categoria),
-          created_at,
-          fecha_mr,
-          fecha_mr_timestamp
-        `)
-        .order('created_at', { ascending: false })
-        .range(from, from + pageSize - 1);
+    // Base query para contar total
+    let countQuery = supabase
+      .from('facturas')
+      .select('id', { count: 'exact', head: true });
 
-      // Filtrar según rol
-      if (rol === 'operacion') {
-        // Los usuarios de operación ven facturas de sus locales asignados
-        const { data: userLocales } = await supabase
-          .from('usuario_locales')
-          .select('local')
-          .eq('usuario_id', userId);
+    // Base query para datos
+    let dataQuery = supabase
+      .from('facturas')
+      .select(`
+        *,
+        factura_imagenes(imagen_url, renombre, nombre_fisico),
+        usuarios(nombre),
+        locales!facturas_local_fkey(categoria),
+        created_at,
+        fecha_mr,
+        fecha_mr_timestamp
+      `)
+      .order('id', { ascending: false })
+      .range(offset, offset + pageSize - 1);
 
-        const locales = userLocales?.map(ul => ul.local) || [];
-        query = query.in('local', locales);
-      } else if (rol === 'proveedores' || (rol === 'proveedores_viewer' && vistaCompleta !== 'true')) {
-        // Facturas con MR + Notas de Crédito (que viajan directo a Proveedores)
-        query = query.or('mr_estado.eq.true,tipo.eq.nota_credito');
-      }
-      // rol 'pedidos', 'pedidos_admin', 'gestion' y 'proveedores_viewer' (con vistaCompleta) ven todas las facturas
+    // ======= APLICAR FILTROS A AMBAS QUERIES =======
 
-      const { data: pageData, error } = await query;
+    // Filtrar según rol
+    if (rol === 'operacion') {
+      const { data: userLocales } = await supabase
+        .from('usuario_locales')
+        .select('local')
+        .eq('usuario_id', userId);
+      const locales = userLocales?.map(ul => ul.local) || [];
+      countQuery = countQuery.in('local', locales);
+      dataQuery = dataQuery.in('local', locales);
+    } else if (rol === 'proveedores' || (rol === 'proveedores_viewer' && vistaCompleta !== 'true')) {
+      countQuery = countQuery.or('mr_estado.eq.true,tipo.eq.nota_credito');
+      dataQuery = dataQuery.or('mr_estado.eq.true,tipo.eq.nota_credito');
+    }
 
-      if (error) throw error;
+    // Filtro de rango de fechas (fecha de factura)
+    if (desde) {
+      countQuery = countQuery.gte('fecha', desde);
+      dataQuery = dataQuery.gte('fecha', desde);
+    }
+    if (hasta) {
+      countQuery = countQuery.lte('fecha', hasta);
+      dataQuery = dataQuery.lte('fecha', hasta);
+    }
 
-      if (pageData && pageData.length > 0) {
-        allFacturas = allFacturas.concat(pageData);
-        from += pageSize;
-        hasMore = pageData.length === pageSize; // Si trajo menos de 1000, ya no hay más
-      } else {
-        hasMore = false;
+    // Filtro de MR
+    if (filtroMR === 'con_mr') {
+      countQuery = countQuery.eq('mr_estado', true);
+      dataQuery = dataQuery.eq('mr_estado', true);
+    } else if (filtroMR === 'sin_mr') {
+      countQuery = countQuery.or('mr_estado.is.null,mr_estado.eq.false');
+      dataQuery = dataQuery.or('mr_estado.is.null,mr_estado.eq.false');
+    }
+
+    // Filtro de locales seleccionados (multiselección)
+    if (localesSeleccionados) {
+      const localesArr = JSON.parse(localesSeleccionados);
+      if (localesArr.length > 0) {
+        countQuery = countQuery.in('local', localesArr);
+        dataQuery = dataQuery.in('local', localesArr);
       }
     }
 
-    const facturas = allFacturas;
+    // Filtro de proveedores seleccionados (multiselección)
+    if (proveedoresSeleccionados) {
+      const proveedoresArr = JSON.parse(proveedoresSeleccionados);
+      if (proveedoresArr.length > 0) {
+        countQuery = countQuery.in('proveedor', proveedoresArr);
+        dataQuery = dataQuery.in('proveedor', proveedoresArr);
+      }
+    }
 
-    // Log para verificar cantidad de registros (ayuda a detectar si estamos llegando al límite)
-    console.log(`[${new Date().toISOString()}] Facturas obtenidas: ${facturas?.length || 0} para rol: ${rol}, userId: ${userId}`);
+    // Filtros de columnas (búsqueda parcial)
+    if (filtroId) {
+      countQuery = countQuery.like('id::text', `%${filtroId}%`);
+      dataQuery = dataQuery.like('id::text', `%${filtroId}%`);
+    }
+    if (filtroFecha) {
+      // El usuario escribe en formato DD/MM/YYYY, convertir a YYYY-MM-DD para la DB
+      // Si contiene '/', intentar convertir DD/MM/YYYY → YYYY-MM-DD
+      let fechaBusqueda = filtroFecha;
+      if (filtroFecha.includes('/')) {
+        const partes = filtroFecha.split('/');
+        if (partes.length === 3) {
+          fechaBusqueda = `${partes[2]}-${partes[1]}-${partes[0]}`;
+        } else if (partes.length === 2) {
+          // Parcial: DD/MM → -MM-DD
+          fechaBusqueda = `-${partes[1]}-${partes[0]}`;
+        }
+      }
+      countQuery = countQuery.like('fecha::text', `%${fechaBusqueda}%`);
+      dataQuery = dataQuery.like('fecha::text', `%${fechaBusqueda}%`);
+    }
+    if (filtroLocal) {
+      countQuery = countQuery.ilike('local', `%${filtroLocal}%`);
+      dataQuery = dataQuery.ilike('local', `%${filtroLocal}%`);
+    }
+    if (filtroNroFactura) {
+      countQuery = countQuery.ilike('nro_factura', `%${filtroNroFactura}%`);
+      dataQuery = dataQuery.ilike('nro_factura', `%${filtroNroFactura}%`);
+    }
+    if (filtroNroOc) {
+      countQuery = countQuery.ilike('nro_oc', `%${filtroNroOc}%`);
+      dataQuery = dataQuery.ilike('nro_oc', `%${filtroNroOc}%`);
+    }
+    if (filtroProveedor) {
+      countQuery = countQuery.ilike('proveedor', `%${filtroProveedor}%`);
+      dataQuery = dataQuery.ilike('proveedor', `%${filtroProveedor}%`);
+    }
+    if (filtroMrNumero) {
+      countQuery = countQuery.ilike('mr_numero', `%${filtroMrNumero}%`);
+      dataQuery = dataQuery.ilike('mr_numero', `%${filtroMrNumero}%`);
+    }
 
-    // Obtener categorías de los locales manualmente
-    // Filtrar facturas que tengan local (ignorar las que tienen local null de facturas antiguas)
+    // Filtro por fecha de MR exacta
+    if (filtroFechaMR) {
+      countQuery = countQuery.gte('fecha_mr', `${filtroFechaMR}T00:00:00`).lte('fecha_mr', `${filtroFechaMR}T23:59:59`);
+      dataQuery = dataQuery.gte('fecha_mr', `${filtroFechaMR}T00:00:00`).lte('fecha_mr', `${filtroFechaMR}T23:59:59`);
+    }
+
+    // Filtro por fecha de carga exacta
+    if (filtroFechaCarga) {
+      countQuery = countQuery.gte('created_at', `${filtroFechaCarga}T00:00:00`).lte('created_at', `${filtroFechaCarga}T23:59:59`);
+      dataQuery = dataQuery.gte('created_at', `${filtroFechaCarga}T00:00:00`).lte('created_at', `${filtroFechaCarga}T23:59:59`);
+    }
+
+    // Ejecutar ambas queries en paralelo
+    const [countResult, dataResult] = await Promise.all([countQuery, dataQuery]);
+
+    if (countResult.error) throw countResult.error;
+    if (dataResult.error) throw dataResult.error;
+
+    const total = countResult.count;
+    const facturas = dataResult.data;
+
+    console.log(`[${new Date().toISOString()}] Facturas obtenidas: ${facturas?.length || 0} (total: ${total}) para rol: ${rol}, userId: ${userId}, page: ${pageNum}`);
+
+    // Obtener categorías de los locales
     const facturasConLocal = facturas.filter(f => f.local != null);
-    const localesUnicos = [...new Set(facturasConLocal.map(f => f.local))];
+    const localesUnicosArr = [...new Set(facturasConLocal.map(f => f.local))];
 
-    const { data: localesData } = await supabase
-      .from('locales')
-      .select('local, categoria')
-      .in('local', localesUnicos);
+    let localCategoriaMap = {};
+    if (localesUnicosArr.length > 0) {
+      const { data: localesData } = await supabase
+        .from('locales')
+        .select('local, categoria')
+        .in('local', localesUnicosArr);
 
-    // Crear un mapa de local -> categoría
-    const localCategoriaMap = {};
-    localesData?.forEach(l => {
-      localCategoriaMap[l.local] = l.categoria;
-    });
+      localesData?.forEach(l => {
+        localCategoriaMap[l.local] = l.categoria;
+      });
+    }
 
     // Agregar la categoría a cada factura
     const facturasConCategoria = facturas.map(f => ({
@@ -267,8 +356,15 @@ app.get('/api/facturas', async (req, res) => {
       }
     }));
 
-    res.json(facturasConCategoria);
+    res.json({
+      data: facturasConCategoria,
+      total,
+      page: pageNum,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize)
+    });
   } catch (error) {
+    console.error('Error en GET /api/facturas:', error);
     res.status(500).json({ error: error.message });
   }
 });
