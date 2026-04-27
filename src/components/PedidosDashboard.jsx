@@ -259,7 +259,7 @@ const PedidosDashboard = forwardRef(({ user, readOnly = false, vistaCompleta = f
 
   const loadAllLocales = async () => {
     try {
-      const response = await fetch(`${API_URL}/locales?userId=1`);
+      const response = await fetch(`${API_URL}/locales?rol=compras`);
       const data = await response.json();
       setLocales(data);
     } catch (error) {
