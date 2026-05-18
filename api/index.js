@@ -455,7 +455,7 @@ app.get('/api/facturas/contadores', async (req, res) => {
     const proveedoresBloqueados = [
       'sgogo', 'panaderia gourmet (sgo del estero)', 'sgopan', 'celasan',
       'centralpan', 'deposito centralpan', 'deposito central',
-      'deposito bimbo', 'deposito kioscos', 'deposito ng', 'planta santiago gourmet', 'ho24 pizza'
+      'deposito bimbo', 'deposito kioscos', 'deposito ng', 'planta santiago gourmet', 'ho24 pizza', 'th09 pizza'
     ];
 
     // Locales excepción (siempre permiten MR aunque sean Trenes)
