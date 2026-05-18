@@ -15,7 +15,8 @@ const PROVEEDORES_SIN_MR_TRENES = [
   'deposito bimbo',
   'deposito kioscos',
   'deposito ng',
-  'planta santiago gourmet'
+  'planta santiago gourmet',
+  'ho24 pizza'
 ];
 
 // Locales que SIEMPRE permiten MR, incluso siendo Trenes con proveedores bloqueados
